@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "333224010311",
+    "project_id": "powertaxi-metro",
+    "storage_bucket": "powertaxi-metro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333224010311:android:01416aa1f47bda70218762",
+        "android_client_info": {
+          "package_name": "com.example.powertaxi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyr_jTH71VPbafhGCZDaXrM1GG1k7d8Ls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
