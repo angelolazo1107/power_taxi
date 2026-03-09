@@ -7,6 +7,7 @@ abstract class TaxiMeterState extends Equatable {
   final String? rideId;
   final bool showSettings;
   final int activeSettingsTab;
+  final bool zReadingPerformed;
 
   const TaxiMeterState(
     this.fare,
@@ -15,6 +16,7 @@ abstract class TaxiMeterState extends Equatable {
     this.rideId,
     this.showSettings = false,
     this.activeSettingsTab = 0,
+    this.zReadingPerformed = false,
   });
 
   @override
@@ -67,6 +69,7 @@ class MeterStopped extends TaxiMeterState {
     String? rideId,
     bool showSettings = false,
     int activeSettingsTab = 0,
+    bool zReadingPerformed = false,
   }) : super(
          fare,
          elapsedSeconds,
@@ -74,6 +77,7 @@ class MeterStopped extends TaxiMeterState {
          rideId: rideId,
          showSettings: showSettings,
          activeSettingsTab: activeSettingsTab,
+         zReadingPerformed: zReadingPerformed,
        );
 }
 

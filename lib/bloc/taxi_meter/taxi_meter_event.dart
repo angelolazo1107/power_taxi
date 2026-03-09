@@ -61,3 +61,7 @@ class PrintReceipt extends TaxiMeterEvent {
   @override
   List<Object> get props => [];
 }
+
+class PrintXReading extends TaxiMeterEvent {}
+
+class PrintZReading extends TaxiMeterEvent {}

@@ -98,7 +98,7 @@ Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
                 Flexible(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
-                    child: _buildTabContent(activeTab),
+                    child: _buildTabContent(context, activeTab),
                   ),
                 ),
 
@@ -214,14 +214,14 @@ Widget _buildOverlayActions(BuildContext context, int activeTab) {
   );
 }
 
-Widget _buildTabContent(int index) {
+Widget _buildTabContent(BuildContext context, int index) {
   switch (index) {
     case 1:
       return _buildRatesForm();
     case 2:
       return _buildReceiptForm();
     case 3:
-      return _buildReportsForm();
+      return _buildReportsForm(context);
     case 4:
       return _buildSystemForm();
 
@@ -358,7 +358,7 @@ Widget _buildSystemForm() {
   );
 }
 
-Widget _buildReportsForm() {
+Widget _buildReportsForm(BuildContext context) {
   return Column(
     children: [
       // Shift Started Banner
@@ -404,7 +404,9 @@ Widget _buildReportsForm() {
       const SizedBox(height: 16),
 
       // X-Reading Card
+      // X-Reading Card
       _buildReportCard(
+        context,
         title: 'X-READING',
         subtitle: 'Current Shift Report',
         icon: Icons.insert_drive_file, // Or Icons.receipt
@@ -412,22 +414,64 @@ Widget _buildReportsForm() {
         iconColor: const Color(0xFF5A8EE2),
         trailingIcon: Icons.print_outlined,
         onTap: () {
-          // TODO: Trigger X-Reading print via BLoC
-          print("X-Reading Tapped");
+          // Trigger X-Reading print via BLoC instantly
+          context.read<TaxiMeterBloc>().add(PrintXReading());
         },
       ),
       const SizedBox(height: 12),
 
       // Z-Reading Card
       _buildReportCard(
+        context,
         title: 'Z-READING',
         subtitle: 'End of Day & Reset',
         icon: Icons.sync,
         iconBgColor: const Color(0xFF38261F), // Muted Orange/Brown
         iconColor: const Color(0xFFFF7121),
         onTap: () {
-          // TODO: Trigger Z-Reading print via BLoC
-          print("Z-Reading Tapped");
+          // Show confirmation dialog before Z-Reading because it resets data
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(
+                0xFF141A22,
+              ), // Matching your dark theme
+              title: const Text(
+                "Perform Z-Reading?",
+                style: TextStyle(color: Colors.white),
+              ),
+              content: const Text(
+                "This will print the final report and clear today's totals. You cannot undo this.",
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    "CANCEL",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7121),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx); // Close the dialog first
+                    // Trigger Z-Reading print via BLoC
+                    context.read<TaxiMeterBloc>().add(PrintZReading());
+                  },
+                  child: const Text(
+                    "PRINT",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
         },
       ),
     ],
@@ -631,7 +675,8 @@ Widget _buildTabItem(
   );
 }
 
-Widget _buildReportCard({
+Widget _buildReportCard(
+  BuildContext context, {
   required String title,
   required String subtitle,
   required IconData icon,
