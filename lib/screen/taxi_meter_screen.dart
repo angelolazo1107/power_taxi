@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
 import 'package:powertaxi/widgets/left_dashboard/left_dashboard.dart';
-import 'package:powertaxi/widgets/rightsidebar/ridesidebar.dart';
+import 'package:powertaxi/widgets/rightsidebar/rightsidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TaxiMeterScreen extends StatelessWidget {

@@ -95,6 +95,8 @@ class MeterStopped extends TaxiMeterState {
          discountAmount: discountAmount,
          discountRate: discountRate,
        );
+
+  
 }
 
 class MeterPaused extends TaxiMeterState {

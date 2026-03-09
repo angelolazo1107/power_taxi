@@ -367,16 +367,19 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
                     elevation: 0,
                   ),
                   onPressed: () {
+                    final taxiBloc = context.read<TaxiMeterBloc>();
+                    final currentState = taxiBloc.state;
                     // 1. Get the current state from the BLoC
-                    final currentState = context.read<TaxiMeterBloc>().state;
 
                     // 2. Trigger the popup dialog!
                     showDialog(
                       context: context,
-                      barrierDismissible:
-                          false, // Prevents closing by tapping outside
-                      builder: (BuildContext dialogContext) {
-                        return ReceiptPreviewDialog(state: currentState);
+                      builder: (dialogContext) {
+                        // 2. Use BlocProvider.value to pass the existing Bloc to the dialog
+                        return BlocProvider.value(
+                          value: taxiBloc,
+                          child: ReceiptPreviewDialog(state: currentState),
+                        );
                       },
                     );
                   },

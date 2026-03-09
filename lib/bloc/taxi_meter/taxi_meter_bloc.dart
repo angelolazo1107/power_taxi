@@ -71,15 +71,17 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     } else if (state is MeterStopped) {
       emit(
         MeterStopped(
+          state.subtotal, // Remove "as double"
+          state.discountRate,
+          state.discountAmount,
           state.fare,
-          state.elapsedSeconds as double,
+          state
+              .elapsedSeconds, // Use as int (matches your MeterStopped constructor)
           state.distanceMeters,
           rideId: state.rideId,
-          showSettings: event.isVisible,
+          showSettings: !state.showSettings, // This toggles the UI
           activeSettingsTab: state.activeSettingsTab,
-          state.discountAmount,
-          state.subtotal as int,
-          state.discountRate,
+          zReadingPerformed: state.zReadingPerformed,
         ),
       );
     } else {
@@ -116,15 +118,16 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     } else if (state is MeterStopped) {
       emit(
         MeterStopped(
-          state.fare,
-          state.elapsedSeconds as double,
-          state.distanceMeters,
+          state.subtotal, // 1. double (Just use the variable)
+          state.discountRate, // 2. double
+          state.discountAmount, // 3. double
+          state.fare, // 4. double
+          state.elapsedSeconds, // 5. int (DO NOT use 'as double')
+          state.distanceMeters, // 6. double
           rideId: state.rideId,
           showSettings: true,
-          activeSettingsTab: event.index,
-          state.discountAmount,
-          state.subtotal as int,
-          state.discountRate,
+          activeSettingsTab: event.index, // The new tab index
+          zReadingPerformed: state.zReadingPerformed,
         ),
       );
     } else {
@@ -366,207 +369,35 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     return super.close();
   }
 
-  // ===========================================================================
-  // SUNMI HARDWARE PRINT LOGIC (UPDATED FOR LATEST PACKAGE)
-  // ===========================================================================
-  // ===========================================================================
-  // SUNMI HARDWARE PRINT LOGIC (FIXED FOR V4 API)
-  // ===========================================================================
-  // ===========================================================================
-  // SUNMI HARDWARE PRINT LOGIC (V4 PACKAGE COMPLIANT)
-  // ===========================================================================
   Future<void> _onPrintReceipt(
     PrintReceipt event,
     Emitter<TaxiMeterState> emit,
   ) async {
-    // 1. Prepare Dynamic Data
-    final now = DateTime.now();
-    final dateStr = "${now.month}/${now.day}/${now.year}";
+    // 1. Check if the state is MeterStopped to get final data
+    if (state is! MeterStopped) {
+      print("Cannot print: Meter is not stopped.");
+      return;
+    }
 
-    final distanceKm = (state.distanceMeters / 1000).toStringAsFixed(2);
-    final travelMinutes = (state.elapsedSeconds / 60).floor().toString();
-    final fareFormatted = state.fare.toStringAsFixed(2);
-    final orNumber = state.rideId?.substring(0, 8).toUpperCase() ?? "00000000";
-    double subtotal = state.fare;
-    double discountAmount = subtotal * event.discountRate;
-    double finalFare = subtotal - discountAmount;
+    final s = state as MeterStopped;
 
-    // 2. Print Header
-    // (Notice we pass align inside SunmiTextStyle!)
-    await SunmiPrinter.printText(
-      'METRO TRANSIT CORP.',
-      style: SunmiTextStyle(
-        bold: true,
-        align: SunmiPrintAlign.CENTER,
-        fontSize: 10,
-      ),
-    );
+    try {
+      // 2. Call the service method with the state data
+      // This matches the signature of the HardwareMeterService we just updated
+      await hardwareService.printOfficialReceipt(
+        rideId: s.rideId ?? "00000000",
+        distanceMeters: s.distanceMeters,
+        elapsedSeconds: s.elapsedSeconds,
+        subtotal: s.subtotal,
+        // Make sure this field exists in your MeterStopped class
+        discountAmount: s.discountAmount,
+        finalFare: s.fare,
+      );
 
-    await hardwareService.printHardwareReceipt(
-      rideId: state.rideId ?? "00000000",
-      distanceMeters: state.distanceMeters,
-      elapsedSeconds: state.elapsedSeconds,
-      subtotal: subtotal,
-      discountType: event.discountType,
-      discountAmount: discountAmount,
-      finalFare: finalFare,
-    );
-
-    await SunmiPrinter.printText(
-      'TIN: 123-456-789-000\n123 EDSA, QUEZON CITY\nTEL: (02) 8123-4567',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 10),
-    );
-
-    await SunmiPrinter.line();
-
-    // 3. Print Vehicle & Trip Details
-    // (Notice alignment is now applied via the 'style' parameter in SunmiColumn)
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'PLATE NO.:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: 'ABC-1234',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'C.C. BODY NO.:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: 'UV-9988',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'O.R. NO.:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: orNumber,
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'DATE:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: dateStr,
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.line();
-
-    // 4. Print Travel Metrics
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'DISTANCE:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: '$distanceKm KM',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'TRAVEL TIME:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: '$travelMinutes MIN',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.lineWrap(1);
-
-    // 5. Print Fare Total
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'FARE:',
-          width: 10,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT, bold: true),
-        ),
-        SunmiColumn(
-          text: 'P $fareFormatted',
-          width: 20,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT, bold: true),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.line();
-
-    // 6. Print Footer
-    await SunmiPrinter.printText(
-      'THIS IS OFFICIAL RECEIPT',
-      style: SunmiTextStyle(bold: true, align: SunmiPrintAlign.CENTER),
-    );
-
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'MIN:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: '18082023-001',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'SERIAL NO.:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: 'SN-77889900',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    // Push paper out so it can be torn cleanly
-    await SunmiPrinter.lineWrap(3);
+      print("✅ Print command sent to HardwareService");
+    } catch (e) {
+      print("❌ Printing failed: $e");
+    }
   }
 
   Future<void> _onPrintXReading(
@@ -575,20 +406,34 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Fetch current shift totals
+    // Pull data saved during _onStopRide
     final totalTrips = prefs.getInt('shift_total_trips') ?? 0;
     final totalFare = prefs.getDouble('shift_total_fare') ?? 0.0;
     final totalDistance = prefs.getDouble('shift_total_distance') ?? 0.0;
-    final shiftStart = prefs.getString('shift_start_time') ?? "Unknown";
 
-    // Call the hardware print function
-    await _printShiftReport(
-      title: "X-READING",
-      totalTrips: totalTrips,
-      totalFare: totalFare,
-      totalDistance: totalDistance,
-      shiftStart: shiftStart,
-    );
+    // Example payment breakdowns (you'll need to save these in _onStopRide too)
+    final cash = prefs.getDouble('shift_total_cash') ?? 0.0;
+    final gcash = prefs.getDouble('shift_total_gcash') ?? 0.0;
+
+    try {
+      await hardwareService.printXReading(
+        taxpayerName: "ROBERT A. MARTINEZ TRANSPORT",
+        plateNo: "ABC1234",
+        bodyNo: "TX-014",
+        driverName: "JUAN DELA CRUZ",
+        tripCount: totalTrips,
+        firstTripNo: "000451", // Pull from DB or Prefs
+        lastTripNo: "000468", // Pull from DB or Prefs
+        totalDistance: totalDistance,
+        totalWaiting: "01:22:10", // Calculate based on total elapsed seconds
+        totalFare: totalFare,
+        cashAmount: cash,
+        gcashAmount: gcash,
+        cardAmount: 0.0,
+      );
+    } catch (e) {
+      print("X-Reading Print Error: $e");
+    }
   }
 
   Future<void> _onPrintZReading(
@@ -597,42 +442,67 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // 1. Fetch Current Totals
     final totalTrips = prefs.getInt('shift_total_trips') ?? 0;
     final totalFare = prefs.getDouble('shift_total_fare') ?? 0.0;
     final totalDistance = prefs.getDouble('shift_total_distance') ?? 0.0;
-    final shiftStart = prefs.getString('shift_start_time') ?? "Unknown";
 
-    // 1. Print the physical Z-Reading receipt
-    await _printShiftReport(
-      title: "Z-READING",
-      totalTrips: totalTrips,
-      totalFare: totalFare,
-      totalDistance: totalDistance,
-      shiftStart: shiftStart,
-    );
+    // 2. Manage Z-Counter (Increments every Z-Reading)
+    int currentZ = prefs.getInt('z_counter') ?? 0;
+    int newZ = currentZ + 1;
+    await prefs.setInt('z_counter', newZ);
 
-    // 2. Clear the shift data so the next driver starts at zero
-    await prefs.remove('shift_total_trips');
-    await prefs.remove('shift_total_fare');
-    await prefs.remove('shift_total_distance');
-    await prefs.remove('shift_start_time');
-
-    // 3. Update the state to unlock the Sign Out button!
-    if (state is MeterStopped) {
-      emit(
-        MeterStopped(
-          state.fare,
-          state.elapsedSeconds as double,
-          state.distanceMeters,
-          rideId: state.rideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
-          zReadingPerformed: true,
-          state.discountAmount,
-          state.subtotal as int,
-          state.discountRate, // <--- UNLOCKS SIGN OUT
-        ),
+    try {
+      // 3. Print the report
+      await hardwareService.printZReading(
+        taxpayerName: "ROBERT A. MARTINEZ TRANSPORT",
+        plateNo: "ABC1234",
+        bodyNo: "TX-014",
+        driverName: "JUAN DELA CRUZ",
+        zCounter: newZ,
+        tripCount: totalTrips,
+        firstTripNo: totalTrips == 0
+            ? "N/A"
+            : (prefs.getString('first_trip_id') ?? "N/A"),
+        lastTripNo: totalTrips == 0
+            ? "N/A"
+            : (prefs.getString('last_trip_id') ?? "N/A"),
+        totalDistance: totalDistance,
+        totalWaiting: "00:00:00", // Calculate from stored seconds
+        totalFare: totalFare,
+        cashAmount: prefs.getDouble('shift_total_cash') ?? 0.0,
+        gcashAmount: prefs.getDouble('shift_total_gcash') ?? 0.0,
+        cardAmount: 0.0,
       );
+
+      // 4. RESET TOTALS (Only after successful print)
+      await prefs.setDouble('shift_total_fare', 0.0);
+      await prefs.setInt('shift_total_trips', 0);
+      await prefs.setDouble('shift_total_distance', 0.0);
+      await prefs.setDouble('shift_total_cash', 0.0);
+      await prefs.setDouble('shift_total_gcash', 0.0);
+      await prefs.remove('first_trip_id');
+      await prefs.remove('last_trip_id');
+
+      // 5. Update State to notify UI that Z-Reading is done
+      if (state is MeterStopped) {
+        final s = state as MeterStopped;
+        emit(
+          MeterStopped(
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0,
+            0.0, // Values reset to zero for new shift
+            zReadingPerformed: true,
+            showSettings: s.showSettings,
+            activeSettingsTab: s.activeSettingsTab,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Z-Reading Error: $e");
     }
   }
 
