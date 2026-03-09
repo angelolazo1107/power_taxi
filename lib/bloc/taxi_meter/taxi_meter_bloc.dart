@@ -72,11 +72,14 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       emit(
         MeterStopped(
           state.fare,
-          state.elapsedSeconds,
+          state.elapsedSeconds as double,
           state.distanceMeters,
           rideId: state.rideId,
           showSettings: event.isVisible,
           activeSettingsTab: state.activeSettingsTab,
+          state.discountAmount,
+          state.subtotal as int,
+          state.discountRate,
         ),
       );
     } else {
@@ -114,11 +117,14 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       emit(
         MeterStopped(
           state.fare,
-          state.elapsedSeconds,
+          state.elapsedSeconds as double,
           state.distanceMeters,
           rideId: state.rideId,
           showSettings: true,
           activeSettingsTab: event.index,
+          state.discountAmount,
+          state.subtotal as int,
+          state.discountRate,
         ),
       );
     } else {
@@ -312,11 +318,14 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     emit(
       MeterStopped(
         state.fare,
-        state.elapsedSeconds,
+        state.elapsedSeconds as double,
         state.distanceMeters,
         rideId: state.rideId,
         showSettings: state.showSettings,
         activeSettingsTab: state.activeSettingsTab,
+        state.subtotal,
+        state.discountAmount as int,
+        state.discountRate,
       ),
     );
   }
@@ -378,6 +387,9 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     final travelMinutes = (state.elapsedSeconds / 60).floor().toString();
     final fareFormatted = state.fare.toStringAsFixed(2);
     final orNumber = state.rideId?.substring(0, 8).toUpperCase() ?? "00000000";
+    double subtotal = state.fare;
+    double discountAmount = subtotal * event.discountRate;
+    double finalFare = subtotal - discountAmount;
 
     // 2. Print Header
     // (Notice we pass align inside SunmiTextStyle!)
@@ -388,6 +400,16 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         align: SunmiPrintAlign.CENTER,
         fontSize: 10,
       ),
+    );
+
+    await hardwareService.printHardwareReceipt(
+      rideId: state.rideId ?? "00000000",
+      distanceMeters: state.distanceMeters,
+      elapsedSeconds: state.elapsedSeconds,
+      subtotal: subtotal,
+      discountType: event.discountType,
+      discountAmount: discountAmount,
+      finalFare: finalFare,
     );
 
     await SunmiPrinter.printText(
@@ -600,12 +622,15 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       emit(
         MeterStopped(
           state.fare,
-          state.elapsedSeconds,
+          state.elapsedSeconds as double,
           state.distanceMeters,
           rideId: state.rideId,
           showSettings: state.showSettings,
           activeSettingsTab: state.activeSettingsTab,
-          zReadingPerformed: true, // <--- UNLOCKS SIGN OUT
+          zReadingPerformed: true,
+          state.discountAmount,
+          state.subtotal as int,
+          state.discountRate, // <--- UNLOCKS SIGN OUT
         ),
       );
     }
@@ -747,62 +772,52 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   }
 
   Future<void> _onStopRide(StopRide event, Emitter<TaxiMeterState> emit) async {
+    // 1. Stop hardware and timers
     _timer?.cancel();
     _hardwareDistanceStream?.cancel();
-
     await hardwareService.stopHardwareMeter();
 
+    // 2. Calculate Math using local variables
+    double subtotal = state.fare;
+    double discountAmount = subtotal * event.discountRate;
+    double finalFare = subtotal - discountAmount;
+
+    // 3. Save to Database
     if (state.rideId != null) {
-      await rideRepository.completeRide(
-        state.rideId!,
-        state.fare,
-        state.distanceMeters,
-      );
+      try {
+        await rideRepository.completeRide(
+          state.rideId!,
+          finalFare,
+          state.distanceMeters,
+        );
+      } catch (e) {
+        print("Save Error: $e");
+      }
     }
 
-    // Print the passenger's receipt
-    await hardwareService.printHardwareReceipt(
-      state.fare,
-      state.distanceMeters,
-    );
-
+    // 4. Update Shift Totals in SharedPreferences
     final prefs = await SharedPreferences.getInstance();
+    final currentFare = prefs.getDouble('shift_total_fare') ?? 0.0;
+    final currentTrips = prefs.getInt('shift_total_trips') ?? 0;
 
-    // =========================================================================
-    // ⭐️ NEW CODE: SAVE SHIFT TOTALS BEFORE DELETING THE RIDE
-    // =========================================================================
-    final currentShiftTrips = prefs.getInt('shift_total_trips') ?? 0;
-    final currentShiftFare = prefs.getDouble('shift_total_fare') ?? 0.0;
-    final currentShiftDistance = prefs.getDouble('shift_total_distance') ?? 0.0;
+    await prefs.setDouble('shift_total_fare', currentFare + finalFare);
+    await prefs.setInt('shift_total_trips', currentTrips + 1);
 
-    // If this is the first trip of the day, record the shift start time
-    if (currentShiftTrips == 0) {
-      final now = DateTime.now();
-      final timeString =
-          "${now.hour}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}";
-      await prefs.setString('shift_start_time', timeString);
-    }
-
-    // Add this ride's data to the shift totals
-    await prefs.setInt('shift_total_trips', currentShiftTrips + 1);
-    await prefs.setDouble('shift_total_fare', currentShiftFare + state.fare);
-    await prefs.setDouble(
-      'shift_total_distance',
-      currentShiftDistance + state.distanceMeters,
-    );
-    // =========================================================================
-
-    // Clear the current active ride
+    // 5. Clear active ride cache
     await prefs.remove('active_ride_id');
     await prefs.remove('ride_start_time');
-    await prefs.remove('accumulated_distance');
 
+    // 6. EMIT THE STATE
+    // IMPORTANT: The order here MUST match the MeterStopped constructor exactly!
     emit(
       MeterStopped(
-        state.fare,
-        state.elapsedSeconds,
-        state.distanceMeters,
-        rideId: state.rideId,
+        subtotal, // 1: subtotal
+        event.discountRate, // 2: discountRate
+        discountAmount, // 3: discountAmount
+        finalFare, // 4: fare
+        state.elapsedSeconds, // 5: elapsedSeconds (int)
+        state.distanceMeters, // 6: distanceMeters
+        rideId: state.rideId, // Named argument
         showSettings: state.showSettings,
         activeSettingsTab: state.activeSettingsTab,
       ),

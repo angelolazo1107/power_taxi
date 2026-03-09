@@ -28,7 +28,15 @@ class HardwareDistanceUpdated extends TaxiMeterEvent {
   List<Object> get props => [newDistanceMeters];
 }
 
-class StopRide extends TaxiMeterEvent {}
+class StopRide extends TaxiMeterEvent {
+  final String discountType; // e.g., 'Senior Citizen'
+  final double discountRate; // e.g., 0.20
+
+  const StopRide({this.discountType = 'REGULAR', this.discountRate = 0.0});
+
+  @override
+  List<Object> get props => [discountType, discountRate];
+}
 
 class ResetMeter extends TaxiMeterEvent {}
 
@@ -56,10 +64,13 @@ class ChangeSettingsTab extends TaxiMeterEvent {
 }
 
 class PrintReceipt extends TaxiMeterEvent {
-  const PrintReceipt();
+  final String discountType; // 'Regular', 'Senior', 'PWD', 'Student'
+  final double discountRate; // 0.0 for Regular, 0.20 for others
+
+  const PrintReceipt({this.discountType = 'Regular', this.discountRate = 0.0});
 
   @override
-  List<Object> get props => [];
+  List<Object> get props => [discountType, discountRate];
 }
 
 class PrintXReading extends TaxiMeterEvent {}

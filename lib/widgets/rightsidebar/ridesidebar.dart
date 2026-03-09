@@ -262,7 +262,7 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () => _showEndTripDialog(
+                  onPressed: () => _showDiscountDialog(
                     context,
                     bloc,
                   ), // Triggers your red popup
@@ -603,136 +603,6 @@ void _showStartTripDialog(BuildContext context, TaxiMeterBloc bloc) {
   );
 }
 
-void _showEndTripDialog(BuildContext context, TaxiMeterBloc bloc) {
-  const Color accentRed = Color(0xFFE54D4D);
-  const Color textFaint = Color(0xFF8B95A5);
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.8),
-    builder: (BuildContext dialogContext) {
-      return Dialog(
-        backgroundColor: const Color(0xFF141A22), // Deep dark navy
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF2A313E), width: 1),
-        ),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Container(
-          width: 500, // Matches the start trip dialog width
-          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 48.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Circular Stop Icon
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF3D1C1C), // Dark red translucent background
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.stop, color: accentRed, size: 48),
-              ),
-              const SizedBox(height: 28),
-
-              // Title
-              const Text(
-                'End Current Trip?',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Subtitle/Body
-              const Text(
-                'Are you sure you want to stop the meter? This will\nfinalize the fare and print the receipt.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: textFaint, fontSize: 16, height: 1.5),
-              ),
-              const SizedBox(height: 48),
-
-              // Action Buttons
-              Row(
-                children: [
-                  // CANCEL Button
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF38404E),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: () => Navigator.of(
-                          dialogContext,
-                        ).pop(), // Close without ending
-                        child: const Text(
-                          'CANCEL',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // CONFIRM Button (Red)
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: accentRed, // Red confirmation button
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          Navigator.of(
-                            dialogContext,
-                          ).pop(); // Close dialog first
-                          bloc.add(
-                            StopRide(),
-                          ); // Fire the BLoC event to finalize the trip
-                        },
-                        icon: const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        label: const Text(
-                          'CONFIRM',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
 Widget _buildTripExpansionTile(BuildContext context, RideRecord ride) {
   final bool isCancelled = ride.status == 'cancelled';
 
@@ -989,5 +859,243 @@ Widget _buildCoordinateRow(
         ),
       ],
     ),
+  );
+}
+
+// ===========================================================================
+// DISCOUNT SELECTION POPUP
+// ===========================================================================
+// ===========================================================================
+// DISCOUNT SELECTION & CONFIRMATION POPUP
+// ===========================================================================
+void _showDiscountDialog(BuildContext parentContext, TaxiMeterBloc bloc) {
+  // 1. Initial State Variables (Defaults to Regular)
+  String selectedTitle = 'REGULAR';
+  double selectedRate = 0.0;
+
+  // 2. The List of Available Discounts
+  final List<Map<String, dynamic>> discountOptions = [
+    {'title': 'REGULAR', 'rate': 0.0, 'subtitle': 'Standard Fare'},
+    {'title': 'SENIOR CITIZEN', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
+    {'title': 'PWD', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
+    {'title': 'STUDENT', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
+  ];
+
+  showDialog(
+    context: parentContext,
+    barrierDismissible: false, // Prevents closing by tapping outside
+    builder: (BuildContext dialogContext) {
+      // StatefulBuilder allows the dialog UI to update when an item is tapped
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: const Color(0xFF1B222C),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: Text(
+                      "SELECT DISCOUNT",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 3. The Vertical List of Options
+                  ...discountOptions.map((option) {
+                    bool isSelected = selectedTitle == option['title'];
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: InkWell(
+                        onTap: () {
+                          // Update the selected state!
+                          setState(() {
+                            selectedTitle = option['title'];
+                            selectedRate = option['rate'];
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF5A8EE2).withOpacity(0.2)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF5A8EE2)
+                                  : const Color(0xFF2A313E),
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              // Radio button visual
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: isSelected
+                                    ? const Color(0xFF5A8EE2)
+                                    : Colors.grey,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 16),
+                              // Text details
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    option['title'],
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.white70,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    option['subtitle'],
+                                    style: const TextStyle(
+                                      color: Color(0xFF8B95A5),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+
+                  const SizedBox(height: 24),
+
+                  // 4. Action Buttons (Cancel & Confirm)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text(
+                            "CANCEL",
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.red, // Keeps the "Stop" action obvious
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {
+                            // 1. Close the dialog
+                            Navigator.pop(dialogContext);
+
+                            // 2. Open the Final Confirmation Dialog
+                            _showFinalConfirmationDialog(
+                              parentContext,
+                              selectedTitle,
+                              selectedRate,
+                            );
+                          },
+                          child: const Text(
+                            "CONFIRM & STOP",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+void _showFinalConfirmationDialog(
+  BuildContext context,
+  String discountType,
+  double discountRate,
+) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1B222C),
+        title: const Text(
+          "END TRIP?",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Are you sure you want to stop the meter and finalize this trip?",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext), // Just close, don't stop
+            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              // Close the dialog
+              Navigator.pop(dialogContext);
+
+              // FIRE THE STOP EVENT TO THE BLOC
+              context.read<TaxiMeterBloc>().add(
+                StopRide(
+                  discountRate: discountRate,
+                  discountType: discountType,
+                ),
+              );
+            },
+            child: const Text("CONFIRM", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
   );
 }

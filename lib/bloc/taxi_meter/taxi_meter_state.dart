@@ -8,6 +8,9 @@ abstract class TaxiMeterState extends Equatable {
   final bool showSettings;
   final int activeSettingsTab;
   final bool zReadingPerformed;
+  final double subtotal;
+  final double discountRate;
+  final double discountAmount;
 
   const TaxiMeterState(
     this.fare,
@@ -17,6 +20,9 @@ abstract class TaxiMeterState extends Equatable {
     this.showSettings = false,
     this.activeSettingsTab = 0,
     this.zReadingPerformed = false,
+    this.subtotal = 0.0,
+    this.discountRate = 0.0,
+    this.discountAmount = 0.0,
   });
 
   @override
@@ -27,6 +33,10 @@ abstract class TaxiMeterState extends Equatable {
     rideId,
     showSettings,
     activeSettingsTab,
+    zReadingPerformed,
+    subtotal,
+    discountAmount,
+    discountRate,
   ];
 }
 
@@ -63,6 +73,9 @@ class MeterRunning extends TaxiMeterState {
 
 class MeterStopped extends TaxiMeterState {
   const MeterStopped(
+    double subtotal,
+    double discountRate,
+    double discountAmount,
     double fare,
     int elapsedSeconds,
     double distanceMeters, {
@@ -78,6 +91,9 @@ class MeterStopped extends TaxiMeterState {
          showSettings: showSettings,
          activeSettingsTab: activeSettingsTab,
          zReadingPerformed: zReadingPerformed,
+         subtotal: subtotal,
+         discountAmount: discountAmount,
+         discountRate: discountRate,
        );
 }
 
