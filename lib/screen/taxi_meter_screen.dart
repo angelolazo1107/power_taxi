@@ -24,7 +24,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
   // --- Black & Orange Color Palette ---
   static const Color bgColor      = Color(0xFF0A0C0F); // Deepest black
   static const Color panelColor   = Color(0xFF111418); // Slightly lighter panels
-  static const Color accentOrange = Color(0xFFFF7121); // Primary orange
+  static const Color accentOrange      = Color(0xFFFF7121); // Primary orange
+  static const Color lightAccentOrange = Color(0xFFFFA726); // Lighter, more vibrant orange
   static const Color textFaint    = Color(0xFF6B7280); // Faint gray text
   static const Color borderColor  = Color(0xFF1E2430); // Subtle dark borders
 
@@ -178,6 +179,33 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     }
   }
 
+  void _showSuccessDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: panelColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.greenAccent, size: 28),
+            SizedBox(width: 12),
+            Text('Print Success', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: textFaint, fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(color: accentOrange, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (kIsWeb && !_isLoggedIn) {
@@ -189,53 +217,84 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor, width: 1.5),
-                ),
-                child: Column(
-                  children: [
-                    _buildTopBar(),
-                    Expanded(
-                      child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
-                        builder: (context, state) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 16),
-                                Expanded(child: _buildHeroPanel(state)),
-                                const SizedBox(height: 24),
-                                SizedBox(
-                                  height: 160,
-                                  child: _buildTelemetryRow(state),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                            ),
-                          );
-                        },
+          child: BlocListener<TaxiMeterBloc, TaxiMeterState>(
+            listenWhen: (previous, current) =>
+                (current.xReadingPerformed && !previous.xReadingPerformed) ||
+                (current.zReadingPerformed && !previous.zReadingPerformed) ||
+                (current.remittancePerformed && !previous.remittancePerformed) ||
+                (current.activityLogPrinted && !previous.activityLogPrinted),
+            listener: (context, state) {
+              if (state.xReadingPerformed) {
+                _showSuccessDialog(context, "X-Reading report has been printed successfully.");
+                context.read<TaxiMeterBloc>().add(ClearReportFlags());
+              } else if (state.zReadingPerformed) {
+                _showSuccessDialog(
+                  context,
+                  "Z-Reading report printed.\nShift totals have been reset to zero.\nZ-Counter incremented.",
+                );
+                context.read<TaxiMeterBloc>().add(ClearReportFlags());
+              } else if (state.remittancePerformed) {
+                _showSuccessDialog(
+                  context,
+                  "Daily Driver Remittance Summary Printed.\nYou can now proceed with X-Reading.",
+                );
+                context.read<TaxiMeterBloc>().add(ClearReportFlags());
+              } else if (state.activityLogPrinted) {
+                _showSuccessDialog(
+                  context,
+                  "Activity Log Report has been queued for printing.",
+                );
+                context.read<TaxiMeterBloc>().add(ClearReportFlags());
+              }
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1.5),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTopBar(),
+                      Expanded(
+                        child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
+                          builder: (context, state) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 16),
+                                  Expanded(child: _buildHeroPanel(state)),
+                                  const SizedBox(height: 24),
+                                  SizedBox(
+                                    height: 160,
+                                    child: _buildTelemetryRow(state),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    _buildFooter(),
-                  ],
+                      _buildFooter(),
+                    ],
+                  ),
                 ),
-              ),
-              // Settings overlay: always positioned over the full screen area
-              Positioned.fill(
-                child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
-                  builder: (context, state) {
-                    if (!state.showSettings) return const SizedBox.shrink();
-                    return buildSettingsOverlay(context, state);
-                  },
+                // Settings overlay: always positioned over the full screen area
+                Positioned.fill(
+                  child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
+                    builder: (context, state) {
+                      if (!state.showSettings) return const SizedBox.shrink();
+                      return buildSettingsOverlay(context, state);
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -514,7 +573,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         Text(
                           wholeStr,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: lightAccentOrange,
                             fontSize: 180,
                             fontWeight: FontWeight.w900,
                             height: 1.0,
@@ -524,8 +583,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                           padding: const EdgeInsets.only(top: 100.0, left: 4.0),
                           child: Text(
                             decStr,
-                            style: const TextStyle(
-                              color: textFaint,
+                            style: TextStyle(
+                              color: lightAccentOrange.withAlpha(200),
                               fontSize: 56,
                               fontWeight: FontWeight.bold,
                             ),
@@ -730,10 +789,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
       icon: const Icon(Icons.play_arrow, size: 24),
       label: const Text('START RIDE'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: accentOrange,
-        foregroundColor: Colors.black,
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
         elevation: 12,
-        shadowColor: accentOrange.withAlpha(120),
+        shadowColor: const Color(0xFF2E7D32).withAlpha(120),
         padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 2.0),
@@ -767,7 +826,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
         const SizedBox(width: 16),
         Expanded(child: _buildTelemetryCard('WAITING',   Icons.pause_circle_outline, waitStr, 'MIN',  const Color(0xFFFF5722))),
         const SizedBox(width: 16),
-        Expanded(child: _buildTelemetryCard('SPEED',     Icons.speed,                speed,   'KM/H', Colors.white70)),
+        Expanded(child: _buildTelemetryCard('SPEED',     Icons.speed,                speed,   'KM/H', lightAccentOrange)),
       ],
     );
   }
@@ -820,8 +879,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
             children: [
               Text(
                 vMain,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: lightAccentOrange,
                   fontSize: 56,
                   fontWeight: FontWeight.w900,
                   height: 1.0,
@@ -830,8 +889,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
               if (vSub.isNotEmpty)
                 Text(
                   vSub,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: lightAccentOrange,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -911,7 +970,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
           content: 'Are you sure you want to drop the flag? This will start the meter count.',
           icon: Icons.play_arrow,
           confirmLabel: 'START',
-          confirmColor: accentOrange,
+          confirmColor: const Color(0xFF2E7D32),
           onConfirm: () {
             context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
           },
@@ -1141,7 +1200,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                                       ),
                                       onPressed: () {
                                         Navigator.pop(dialogContext);
-                                        _showEndRideConfirmation(parentContext, selectedTitle, selectedRate);
+                                        parentContext.read<TaxiMeterBloc>().add(StopRide(
+                                          discountRate: selectedRate,
+                                          discountType: selectedTitle,
+                                        ));
                                       },
                                       child: const Text(
                                         "PROCEED TO FINALIZATION",
@@ -1166,28 +1228,6 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     );
   }
 
-  void _showEndRideConfirmation(BuildContext context, String discountType, double discountRate) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return _buildStyledConfirmationDialog(
-          context: dialogContext,
-          title: 'End Current Trip?',
-          content: 'Are you sure you want to stop the meter and finalize this trip?',
-          icon: Icons.stop,
-          confirmLabel: 'END TRIP',
-          confirmColor: Colors.redAccent,
-          onConfirm: () {
-            context.read<TaxiMeterBloc>().add(StopRide(
-              discountRate: discountRate,
-              discountType: discountType,
-            ));
-          },
-        );
-      },
-    );
-  }
 
   Widget _buildStyledConfirmationDialog({
     required BuildContext context,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:powertaxi/core/database_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool asPage;
@@ -309,6 +310,12 @@ class _LoginScreenState extends State<LoginScreen> {
       // Save driver name for profile chip display
       final String driverName = userData['name'] ?? userData['fullName'] ?? email.split('@').first.toUpperCase();
       await prefs.setString('driverName', driverName);
+
+      // Log the login activity
+      await LocalDatabaseHelper.instance.insertActivityLog(
+        user: driverName,
+        action: 'LOGIN',
+      );
 
       if (mounted) {
         if (role == 'admin') {

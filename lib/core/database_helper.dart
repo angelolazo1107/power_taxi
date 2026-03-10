@@ -19,7 +19,12 @@ class LocalDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path, 
+      version: 2, 
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
   }
 
   // 3. Define the Table Structure
@@ -35,6 +40,28 @@ class LocalDatabaseHelper {
         is_synced INTEGER NOT NULL DEFAULT 0 
       )
     ''');
+    
+    await db.execute('''
+      CREATE TABLE activity_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        user TEXT NOT NULL,
+        action TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE activity_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          timestamp TEXT NOT NULL,
+          user TEXT NOT NULL,
+          action TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   // ====================================================================
@@ -75,6 +102,60 @@ class LocalDatabaseHelper {
       {'is_synced': 1}, // Update to 1 (Synced)
       where: 'rideId = ?',
       whereArgs: [rideId],
+    );
+  }
+
+  // ====================================================================
+  // ACTIVITY LOGS 
+  // ====================================================================
+
+  /// Insert an activity log entry
+  Future<void> insertActivityLog({
+    required String user,
+    required String action,
+  }) async {
+    final db = await instance.database;
+    
+    // Fallback for Hot Reload users who didn't upgrade DB session properly
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        user TEXT NOT NULL,
+        action TEXT NOT NULL
+      )
+    ''');
+
+    await db.insert('activity_logs', {
+      'timestamp': DateTime.now().toIso8601String(),
+      'user': user,
+      'action': action,
+    });
+  }
+
+  /// Fetch activity logs between two dates
+  Future<List<Map<String, dynamic>>> getActivityLogs(DateTime from, DateTime to) async {
+    final db = await instance.database;
+    
+    // Fallback for Hot Reload users who didn't upgrade DB session properly
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        user TEXT NOT NULL,
+        action TEXT NOT NULL
+      )
+    ''');
+
+    // Convert to ISO 8601 strings since that's how we store them
+    final fromStr = from.toIso8601String();
+    final toStr = to.toIso8601String();
+
+    return await db.query(
+      'activity_logs',
+      where: 'timestamp >= ? AND timestamp <= ?',
+      whereArgs: [fromStr, toStr],
+      orderBy: 'timestamp ASC',
     );
   }
 }

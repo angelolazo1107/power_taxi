@@ -8,25 +8,31 @@ abstract class TaxiMeterState extends Equatable {
   final bool showSettings;
   final int activeSettingsTab;
   final bool zReadingPerformed;
+  final bool xReadingPerformed;
+  final bool remittancePerformed;
   final double subtotal;
   final double discountRate;
   final double discountAmount;
-  final bool is80mmPrinter; // NEW: Printer paper size setting
+  final bool is80mmPrinter;
   final int waitingSeconds;
+  final bool activityLogPrinted;
 
-  const TaxiMeterState(
-    this.fare,
-    this.elapsedSeconds,
-    this.distanceMeters, {
+  const TaxiMeterState({
+    required this.fare,
+    required this.elapsedSeconds,
+    required this.distanceMeters,
     this.rideId,
     this.showSettings = false,
     this.activeSettingsTab = 0,
     this.zReadingPerformed = false,
+    this.xReadingPerformed = false,
+    this.remittancePerformed = false,
     this.subtotal = 0.0,
     this.discountRate = 0.0,
     this.discountAmount = 0.0,
-    this.is80mmPrinter = false, // Default is 58mm
+    this.is80mmPrinter = false,
     this.waitingSeconds = 0,
+    this.activityLogPrinted = false,
   });
 
   @override
@@ -38,54 +44,52 @@ abstract class TaxiMeterState extends Equatable {
     showSettings,
     activeSettingsTab,
     zReadingPerformed,
+    xReadingPerformed,
+    remittancePerformed,
     subtotal,
     discountAmount,
     discountRate,
-    is80mmPrinter, // CRITICAL: Added this to props so Bloc updates correctly
+    is80mmPrinter,
     waitingSeconds,
+    activityLogPrinted,
   ];
 }
 
 class MeterInitial extends TaxiMeterState {
   const MeterInitial({
-    bool showSettings = false,
-    int activeSettingsTab = 0,
-    bool is80mmPrinter = false, // Accept printer setting
-    int waitingSeconds = 0,
+    super.showSettings,
+    super.activeSettingsTab,
+    super.is80mmPrinter,
+    super.waitingSeconds,
+    super.zReadingPerformed,
+    super.xReadingPerformed,
+    super.remittancePerformed,
+    super.activityLogPrinted,
   }) : super(
-         0.0,
-         0,
-         0.0,
-         showSettings: showSettings,
-         activeSettingsTab: activeSettingsTab,
-         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
-         waitingSeconds: waitingSeconds,
+         fare: 0.0,
+         elapsedSeconds: 0,
+         distanceMeters: 0.0,
        );
 }
 
 class MeterRunning extends TaxiMeterState {
   final bool isWaiting;
 
-  const MeterRunning(
-    double fare,
-    int elapsedSeconds,
-    double distanceMeters, {
-    String? rideId,
-    bool showSettings = false,
-    int activeSettingsTab = 0,
-    bool is80mmPrinter = false,
-    int waitingSeconds = 0,
+  const MeterRunning({
+    required super.fare,
+    required super.elapsedSeconds,
+    required super.distanceMeters,
+    super.rideId,
+    super.showSettings,
+    super.activeSettingsTab,
+    super.is80mmPrinter,
+    super.waitingSeconds,
     this.isWaiting = false,
-  }) : super(
-         fare,
-         elapsedSeconds,
-         distanceMeters,
-         rideId: rideId,
-         showSettings: showSettings,
-         activeSettingsTab: activeSettingsTab,
-         is80mmPrinter: is80mmPrinter,
-         waitingSeconds: waitingSeconds,
-       );
+    super.zReadingPerformed,
+    super.xReadingPerformed,
+    super.remittancePerformed,
+    super.activityLogPrinted,
+  });
 
   @override
   List<Object?> get props => [
@@ -95,53 +99,38 @@ class MeterRunning extends TaxiMeterState {
 }
 
 class MeterStopped extends TaxiMeterState {
-  const MeterStopped(
-    double subtotal,
-    double discountRate,
-    double discountAmount,
-    double fare,
-    int elapsedSeconds,
-    double distanceMeters, {
-    String? rideId,
-    bool showSettings = false,
-    int activeSettingsTab = 0,
-    bool zReadingPerformed = false,
-    bool is80mmPrinter = false, // Accept printer setting
-    int waitingSeconds = 0,
-  }) : super(
-         fare,
-         elapsedSeconds,
-         distanceMeters,
-         rideId: rideId,
-         showSettings: showSettings,
-         activeSettingsTab: activeSettingsTab,
-         zReadingPerformed: zReadingPerformed,
-         subtotal: subtotal,
-         discountAmount: discountAmount,
-         discountRate: discountRate,
-         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
-         waitingSeconds: waitingSeconds,
-       );
+  const MeterStopped({
+    required super.subtotal,
+    required super.discountRate,
+    required super.discountAmount,
+    required super.fare,
+    required super.elapsedSeconds,
+    required super.distanceMeters,
+    super.rideId,
+    super.showSettings,
+    super.activeSettingsTab,
+    super.zReadingPerformed,
+    super.is80mmPrinter,
+    super.waitingSeconds,
+    super.xReadingPerformed,
+    super.remittancePerformed,
+    super.activityLogPrinted,
+  });
 }
 
 class MeterPaused extends TaxiMeterState {
-  const MeterPaused(
-    double fare,
-    int seconds,
-    double distance, {
-    String? rideId,
-    bool showSettings = false,
-    int activeSettingsTab = 0,
-    bool is80mmPrinter = false, // Accept printer setting
-    int waitingSeconds = 0,
-  }) : super(
-         fare,
-         seconds,
-         distance,
-         rideId: rideId,
-         showSettings: showSettings,
-         activeSettingsTab: activeSettingsTab,
-         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
-         waitingSeconds: waitingSeconds,
-       );
+  const MeterPaused({
+    required super.fare,
+    required super.elapsedSeconds,
+    required super.distanceMeters,
+    super.rideId,
+    super.showSettings,
+    super.activeSettingsTab,
+    super.is80mmPrinter,
+    super.waitingSeconds,
+    super.zReadingPerformed,
+    super.xReadingPerformed,
+    super.remittancePerformed,
+    super.activityLogPrinted,
+  });
 }

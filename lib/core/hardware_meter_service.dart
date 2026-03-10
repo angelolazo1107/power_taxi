@@ -102,7 +102,7 @@ class HardwareMeterService {
       '${distanceKm.toStringAsFixed(2)} KM',
       bodySize,
     );
-    await _adaptiveRow('WAITING TIME:', waitingTime, bodySize);
+    await _adaptiveRow('TOTAL TIME:', waitingTime, bodySize);
 
     await SunmiPrinter.printText(
       '------------------------------------------',
@@ -281,6 +281,8 @@ class HardwareMeterService {
     required int tripCount,
     required String firstTripNo,
     required String lastTripNo,
+    required double startOdometer,
+    required double endOdometer,
     required double totalDistance,
     required String totalWaiting,
     required double totalFare,
@@ -328,6 +330,8 @@ class HardwareMeterService {
     await SunmiPrinter.printText('------------------------------------------');
 
     // 4. Distance & Time
+    await _print80mmRow('START ODOMETER    :', '${startOdometer.toStringAsFixed(1)} KM');
+    await _print80mmRow('END ODOMETER      :', '${endOdometer.toStringAsFixed(1)} KM');
     await _print80mmRow(
       'TOTAL DISTANCE    :',
       '${totalDistance.toStringAsFixed(1)} KM',
@@ -390,6 +394,8 @@ class HardwareMeterService {
     required int tripCount,
     required String firstTripNo,
     required String lastTripNo,
+    required double startOdometer,
+    required double endOdometer,
     required double totalDistance,
     required String totalWaiting,
     required double totalFare,
@@ -441,6 +447,8 @@ class HardwareMeterService {
     await SunmiPrinter.printText('------------------------------------------');
 
     // Metrics
+    await _print80mmRow('START ODOMETER    :', '${startOdometer.toStringAsFixed(1)} KM');
+    await _print80mmRow('END ODOMETER      :', '${endOdometer.toStringAsFixed(1)} KM');
     await _print80mmRow(
       'TOTAL DISTANCE    :',
       '${totalDistance.toStringAsFixed(1)} KM',
@@ -497,6 +505,184 @@ class HardwareMeterService {
       style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
     );
 
+    await SunmiPrinter.lineWrap(4);
+    await SunmiPrinter.cutPaper();
+  }
+
+  Future<void> printRemittanceReport({
+    required String driverName,
+    required String plateNo,
+    required String bodyNo,
+    required String shift,
+    required int zCounter,
+    required int tripCount,
+    required double startOdometer,
+    required double endOdometer,
+    required double totalDistance,
+    required String totalWaiting,
+    required double totalCollection,
+    required double boundary,
+    required double commission,
+    required double charges,
+    required double netRemittance,
+  }) async {
+    final now = DateTime.now();
+    final dateStr =
+        "${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}/${now.year}";
+
+    // 1. Header
+    await SunmiPrinter.printText(
+      'POWERTAXI METRO',
+      style: SunmiTextStyle(
+        bold: true,
+        align: SunmiPrintAlign.CENTER,
+        fontSize: 28,
+      ),
+    );
+    await SunmiPrinter.printText(
+      'DAILY DRIVER REMITTANCE SUMMARY',
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        bold: true,
+        fontSize: 24,
+      ),
+    );
+    await SunmiPrinter.line();
+
+    // 2. Info Section
+    await _print80mmRow('DATE              :', dateStr);
+    await _print80mmRow('DRIVER            :', driverName.toUpperCase());
+    await _print80mmRow('PLATE NO.         :', plateNo);
+    await _print80mmRow('BODY NO.          :', bodyNo);
+    await _print80mmRow('SHIFT             :', shift.toUpperCase());
+    await _print80mmRow('Z COUNTER         :', zCounter.toString().padLeft(6, '0'));
+
+    await SunmiPrinter.line();
+
+    // 3. Stats Section
+    await _print80mmRow('TRIP COUNT        :', '[$tripCount]');
+    await _print80mmRow('START ODOMETER    :', '${startOdometer.toStringAsFixed(1)} KM');
+    await _print80mmRow('END ODOMETER      :', '${endOdometer.toStringAsFixed(1)} KM');
+    await _print80mmRow('TOTAL DISTANCE    :', '${totalDistance.toStringAsFixed(1)} KM');
+    await _print80mmRow('TOTAL WAITING     :', totalWaiting);
+
+    await SunmiPrinter.line();
+
+    // 4. Financial Section
+    await _print80mmRow('TOTAL COLLECTION  :', 'PHP ${totalCollection.toStringAsFixed(2)}');
+    await _print80mmRow('LESS BOUNDARY     :', 'PHP ${boundary.toStringAsFixed(2)}');
+    await _print80mmRow('LESS COMMISSION   :', 'PHP ${commission.toStringAsFixed(2)}');
+    await _print80mmRow('LESS CHARGES      :', 'PHP ${charges.toStringAsFixed(2)}');
+
+    await SunmiPrinter.printText('------------------------------------------');
+    
+    await SunmiPrinter.printRow(
+      cols: [
+        SunmiColumn(
+          text: 'NET REMITTANCE    :',
+          width: 14,
+          style: SunmiTextStyle(bold: true, fontSize: 24),
+        ),
+        SunmiColumn(
+          text: 'PHP ${netRemittance.toStringAsFixed(2)}',
+          width: 16,
+          style: SunmiTextStyle(
+            bold: true,
+            align: SunmiPrintAlign.RIGHT,
+            fontSize: 24,
+          ),
+        ),
+      ],
+    );
+
+    await SunmiPrinter.line();
+    await SunmiPrinter.line();
+
+    // 5. Signatures
+    await SunmiPrinter.printText(
+      'PREPARED BY       : __________________\nRECEIVED BY       : __________________',
+      style: SunmiTextStyle(fontSize: 20),
+    );
+
+    // 6. Feed and Cut
+    await SunmiPrinter.lineWrap(4);
+    await SunmiPrinter.cutPaper();
+  }
+
+  Future<void> printActivityLogReport({
+    required List<Map<String, dynamic>> logs,
+    required DateTime from,
+    required DateTime to,
+    required String plateNo,
+  }) async {
+    final fromStr = "${from.month.toString().padLeft(2, '0')}/${from.day.toString().padLeft(2, '0')}/${from.year} ${from.hour.toString().padLeft(2, '0')}:${from.minute.toString().padLeft(2, '0')}:${from.second.toString().padLeft(2, '0')}";
+    final toStr = "${to.month.toString().padLeft(2, '0')}/${to.day.toString().padLeft(2, '0')}/${to.year} ${to.hour.toString().padLeft(2, '0')}:${to.minute.toString().padLeft(2, '0')}:${to.second.toString().padLeft(2, '0')}";
+
+    // 1. Header
+    await SunmiPrinter.printText(
+      'POWERTAXI METRO',
+      style: SunmiTextStyle(
+        bold: true,
+        align: SunmiPrintAlign.CENTER,
+        fontSize: 28,
+      ),
+    );
+    await SunmiPrinter.printText(
+      'ACTIVITY LOG REPORT',
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        bold: true,
+        fontSize: 24,
+      ),
+    );
+    await SunmiPrinter.line();
+
+    // 2. Info Section
+    await SunmiPrinter.printText(
+      'DATE RANGE: [$fromStr - $toStr]',
+      style: SunmiTextStyle(fontSize: 20),
+    );
+    await SunmiPrinter.printText(
+      'MIN: [PTU-2026-0001]',
+      style: SunmiTextStyle(fontSize: 20),
+    );
+    await SunmiPrinter.printText(
+      'PLATE NO.: [$plateNo]',
+      style: SunmiTextStyle(fontSize: 20),
+    );
+
+    await SunmiPrinter.printText('------------------------------------------');
+    
+    // 3. Table Header
+    await SunmiPrinter.printRow(
+      cols: [
+        SunmiColumn(text: 'DATE/TIME', width: 10, style: SunmiTextStyle(fontSize: 20, bold: true)),
+        SunmiColumn(text: 'USER', width: 8, style: SunmiTextStyle(fontSize: 20, bold: true)),
+        SunmiColumn(text: 'ACTION', width: 12, style: SunmiTextStyle(fontSize: 20, bold: true)),
+      ],
+    );
+    
+    await SunmiPrinter.printText('------------------------------------------');
+
+    // 4. Activity Logs
+    for (var log in logs) {
+      DateTime ts = DateTime.parse(log['timestamp']);
+      String timeStr = "${ts.month.toString().padLeft(2, '0')}/${ts.day.toString().padLeft(2, '0')}/${ts.year} ${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}";
+      String user = log['user'] ?? 'UNKNOWN';
+      String action = log['action'] ?? 'UNKNOWN';
+
+      await SunmiPrinter.printRow(
+        cols: [
+          SunmiColumn(text: timeStr, width: 10, style: SunmiTextStyle(fontSize: 20)),
+          SunmiColumn(text: user, width: 8, style: SunmiTextStyle(fontSize: 20)),
+          SunmiColumn(text: action, width: 12, style: SunmiTextStyle(fontSize: 20)),
+        ],
+      );
+    }
+
+    await SunmiPrinter.printText('------------------------------------------');
+
+    // 5. Feed and Cut
     await SunmiPrinter.lineWrap(4);
     await SunmiPrinter.cutPaper();
   }

@@ -81,9 +81,11 @@ class PrintXReading extends TaxiMeterEvent {}
 
 class PrintZReading extends TaxiMeterEvent {}
 
+class PrintRemittance extends TaxiMeterEvent {}
+
 class InitializeSettings extends TaxiMeterEvent {
   final bool is80mmPrinter;
-  InitializeSettings({this.is80mmPrinter = false});
+  const InitializeSettings({this.is80mmPrinter = false});
 }
 
 class TogglePrinterSize extends TaxiMeterEvent {
@@ -92,4 +94,26 @@ class TogglePrinterSize extends TaxiMeterEvent {
 
   @override
   List<Object> get props => [is80mm];
+}
+
+class ClearReportFlags extends TaxiMeterEvent {}
+
+class LogActivity extends TaxiMeterEvent {
+  final String action;
+  final String user;
+
+  const LogActivity({required this.action, this.user = 'ADMIN'});
+
+  @override
+  List<Object> get props => [action, user];
+}
+
+class PrintActivityLog extends TaxiMeterEvent {
+  final DateTime from;
+  final DateTime to;
+
+  const PrintActivityLog({required this.from, required this.to});
+
+  @override
+  List<Object> get props => [from, to];
 }

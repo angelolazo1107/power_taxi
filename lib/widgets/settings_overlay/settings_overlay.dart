@@ -507,7 +507,7 @@ Widget _buildTabContent(BuildContext context, int index, TaxiMeterState state) {
     case 1:
       return _buildReceiptForm();
     case 2:
-      return _buildReportsForm(context);
+      return _buildReportsForm(context, state);
     case 3:
       return _buildSystemForm(context, state);
     default:
@@ -641,7 +641,7 @@ Widget _buildReceiptForm() {
 // ─────────────────────────────────────────────
 //  REPORTS TAB
 // ─────────────────────────────────────────────
-Widget _buildReportsForm(BuildContext context) {
+Widget _buildReportsForm(BuildContext context, TaxiMeterState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -714,13 +714,45 @@ Widget _buildReportsForm(BuildContext context) {
       const SizedBox(height: 12),
       _reportCard(
         context,
+        title: 'REMITTANCE',
+        subtitle: 'Driver Summary — prints remittance details',
+        icon: Icons.payments_outlined,
+        accent: _gold,
+        tag: 'REQUIRED',
+        tagColor: _gold,
+        onTap: () => showDialog(
+          context: context,
+          builder: (ctx) => BlocProvider.value(
+            value: context.read<TaxiMeterBloc>(),
+            child: _RemittanceDialog(ctx: ctx),
+          ),
+        ),
+      ),
+      const SizedBox(height: 10),
+      _reportCard(
+        context,
         title: 'X-READING',
         subtitle: 'Current shift — prints without resetting',
         icon: Icons.insert_drive_file_outlined,
-        accent: _orange,
-        tag: 'NON-RESET',
-        tagColor: _orange,
-        onTap: () => context.read<TaxiMeterBloc>().add(PrintXReading()),
+        accent: state.remittancePerformed ? _orange : Colors.grey,
+        tag: state.remittancePerformed ? 'AVAILABLE' : 'LOCKED',
+        tagColor: state.remittancePerformed ? _orange : Colors.grey,
+        onTap: state.remittancePerformed
+            ? () => showDialog(
+                  context: context,
+                  builder: (ctx) => BlocProvider.value(
+                    value: context.read<TaxiMeterBloc>(),
+                    child: _XReadingDialog(ctx: ctx),
+                  ),
+                )
+            : () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please perform Remittance first.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              },
       ),
       const SizedBox(height: 10),
       _reportCard(
@@ -733,7 +765,27 @@ Widget _buildReportsForm(BuildContext context) {
         tagColor: _orange,
         onTap: () => showDialog(
           context: context,
-          builder: (ctx) => _ZReadingDialog(ctx: ctx),
+          builder: (ctx) => BlocProvider.value(
+            value: context.read<TaxiMeterBloc>(),
+            child: _ZReadingDialog(ctx: ctx),
+          ),
+        ),
+      ),
+      const SizedBox(height: 10),
+      _reportCard(
+        context,
+        title: 'ACTIVITY LOG REPORT',
+        subtitle: 'Summary of driver actions on the meter',
+        icon: Icons.list_alt,
+        accent: _gold,
+        tag: 'VIEW LOGS',
+        tagColor: _gold,
+        onTap: () => showDialog(
+          context: context,
+          builder: (ctx) => BlocProvider.value(
+            value: context.read<TaxiMeterBloc>(),
+            child: _ActivityLogDialog(ctx: ctx),
+          ),
         ),
       ),
       const SizedBox(height: 20),
@@ -804,6 +856,77 @@ class _ZReadingDialog extends StatelessWidget {
           icon: const Icon(Icons.print, size: 16, color: Colors.white),
           label: const Text(
             'PRINT & RESET',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _XReadingDialog extends StatelessWidget {
+  final BuildContext ctx;
+  const _XReadingDialog({required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _border),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _orange.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.print_outlined,
+              color: _orange,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Perform X-Reading?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'This will print the current shift report. This action will not reset or clear any data.',
+        style: TextStyle(color: _muted, fontSize: 13, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text(
+            'CANCEL',
+            style: TextStyle(color: _muted, fontWeight: FontWeight.bold),
+          ),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _orange,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () {
+            Navigator.pop(ctx);
+            context.read<TaxiMeterBloc>().add(PrintXReading());
+          },
+          icon: const Icon(Icons.print, size: 16, color: Colors.white),
+          label: const Text(
+            'PRINT REPORT',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -1234,4 +1357,241 @@ Widget _actionTile({
       ),
     ),
   );
+}
+
+class _RemittanceDialog extends StatelessWidget {
+  final BuildContext ctx;
+  const _RemittanceDialog({required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _border),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _gold.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.payments_outlined,
+              color: _gold,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Perform Remittance?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'This will print the Daily Driver Remittance Summary. This is required before you can perform an X-Reading.',
+        style: TextStyle(color: _muted, fontSize: 13, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text(
+            'CANCEL',
+            style: TextStyle(color: _muted, fontWeight: FontWeight.bold),
+          ),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _gold,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () {
+            Navigator.pop(ctx);
+            context.read<TaxiMeterBloc>().add(PrintRemittance());
+          },
+          icon: const Icon(Icons.print, size: 16, color: Colors.black),
+          label: const Text(
+            'PRINT SUMMARY',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActivityLogDialog extends StatefulWidget {
+  final BuildContext ctx;
+  const _ActivityLogDialog({required this.ctx});
+
+  @override
+  AppActivityLogDialogState createState() => AppActivityLogDialogState();
+}
+
+class AppActivityLogDialogState extends State<_ActivityLogDialog> {
+  DateTime _fromDate = DateTime.now().subtract(const Duration(days: 1));
+  TimeOfDay _fromTime = const TimeOfDay(hour: 0, minute: 0);
+
+  DateTime _toDate = DateTime.now();
+  TimeOfDay _toTime = const TimeOfDay(hour: 23, minute: 59);
+
+  Future<void> _selectDate(BuildContext context, bool isFrom) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: isFrom ? _fromDate : _toDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          _fromDate = picked;
+        } else {
+          _toDate = picked;
+        }
+      });
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context, bool isFrom) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isFrom ? _fromTime : _toTime,
+    );
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          _fromTime = picked;
+        } else {
+          _toTime = picked;
+        }
+      });
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    return "${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFF333333)),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFD700).withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.list_alt,
+              color: Color(0xFFFFD700),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Activity Log Report',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Date/Time Range for logs:',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            const Text("FROM:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _selectDate(context, true),
+                    child: Text(_formatDate(_fromDate), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _selectTime(context, true),
+                    child: Text(_fromTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                )
+              ]
+            ),
+            const SizedBox(height: 16),
+            const Text("TO:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _selectDate(context, false),
+                    child: Text(_formatDate(_toDate), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _selectTime(context, false),
+                    child: Text(_toTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                )
+              ]
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(widget.ctx),
+          child: const Text('CANCEL', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFD700),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: () {
+            DateTime start = DateTime(_fromDate.year, _fromDate.month, _fromDate.day, _fromTime.hour, _fromTime.minute);
+            DateTime end = DateTime(_toDate.year, _toDate.month, _toDate.day, _toTime.hour, _toTime.minute, 59);
+
+            Navigator.pop(widget.ctx);
+            context.read<TaxiMeterBloc>().add(PrintActivityLog(from: start, to: end));
+          },
+          icon: const Icon(Icons.print, size: 16, color: Colors.black),
+          label: const Text(
+            'PRINT LOGS',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
 }
