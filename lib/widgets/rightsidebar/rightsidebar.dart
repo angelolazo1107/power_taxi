@@ -8,15 +8,18 @@ import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/widgets/receipt_sunmi/receipt_show_dialog.dart';
 import 'package:powertaxi/widgets/settings_overlay/settings_overlay.dart';
 
+// ─────────────────────────────────────────────
+//  DESIGN TOKENS
+// ─────────────────────────────────────────────
+const Color panelColor = Color(0xFF262C38);
+const Color accentOrange = Color(0xFFFF7121);
+const Color accentRed = Color(0xFFE54D4D);
+const Color textFaint = Color(0xFF8B95A5);
+const Color borderColor = Color(0xFF38404E);
+
 Widget buildRightSidebar(BuildContext context, TaxiMeterState state) {
   final String currentDriverId = 'driver_001';
   final rideRepository = context.read<RideRepository>();
-
-  const Color panelColor = Color(0xFF262C38);
-  const Color accentOrange = Color(0xFFFF7121);
-  const Color accentRed = Color(0xFFE54D4D);
-  const Color textFaint = Color(0xFF8B95A5);
-  const Color borderColor = Color(0xFF38404E);
 
   return Container(
     color: panelColor,
@@ -49,9 +52,6 @@ Widget buildRightSidebar(BuildContext context, TaxiMeterState state) {
                 icon: const Icon(Icons.settings, color: textFaint),
                 // TRIGGER: Open Settings via BLoC
                 onPressed: () {
-                  print(
-                    "Settings Tapped!",
-                  ); // Add this to your console to debug
                   context.read<TaxiMeterBloc>().add(const ToggleSettings(true));
                 },
               ),
@@ -176,7 +176,7 @@ Widget buildRightSidebar(BuildContext context, TaxiMeterState state) {
                     border: Border.all(color: const Color(0xFF38404E)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withAlpha(128),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -203,8 +203,6 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
   // ==========================================
   if (state is MeterRunning || state is MeterPaused) {
     final isPaused = state is MeterPaused;
-    const Color accentGreen = Color(0xFF1CB955);
-    const Color accentRed = Color(0xFFE54D4D);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -218,7 +216,7 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isPaused
-                        ? accentGreen
+                        ? accentOrange
                         : const Color(0xFFD6930B),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -316,9 +314,6 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
   // 2. POST-TRIP STATE (Trip Ended or Cancelled)
   // ==========================================
   if (state is MeterStopped) {
-    const Color accentGreen = Color(0xFF1CB955);
-    const Color borderColor = Color(0xFF38404E);
-    const Color accentOrange = Color(0xFFFF7121);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -328,7 +323,7 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
           height: 60,
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: accentGreen,
+              backgroundColor: accentOrange,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -437,13 +432,12 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
   // ==========================================
   // 3. IDLE STATE (Initial Boot / New Passenger cleared)
   // ==========================================
-  const Color accentGreen = Color(0xFF1CB955);
   return SizedBox(
     width: double.infinity,
     height: 60,
     child: ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
-        backgroundColor: accentGreen,
+        backgroundColor: accentOrange,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
       ),
@@ -462,14 +456,11 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
 }
 
 void _showStartTripDialog(BuildContext context, TaxiMeterBloc bloc) {
-  const Color accentGreen = Color(0xFF1CB955);
-
-  const Color textFaint = Color(0xFF8B95A5);
 
   showDialog(
     context: context,
     // Darkens the background behind the dialog more heavily
-    barrierColor: Colors.black.withOpacity(0.8),
+    barrierColor: Colors.black.withAlpha(204),
     builder: (BuildContext dialogContext) {
       return Dialog(
         backgroundColor: const Color(0xFF141A22), // Deep dark navy
@@ -495,13 +486,13 @@ void _showStartTripDialog(BuildContext context, TaxiMeterBloc bloc) {
               Container(
                 width: 80,
                 height: 80,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF173627), // Dark green translucent background
+                decoration: BoxDecoration(
+                  color: accentOrange.withAlpha(40), // Dark orange translucent background
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.play_arrow,
-                  color: accentGreen,
+                  color: accentOrange,
                   size: 48,
                 ),
               ),
@@ -565,7 +556,7 @@ void _showStartTripDialog(BuildContext context, TaxiMeterBloc bloc) {
                       height: 56, // Taller, thicker buttons
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: accentGreen,
+                          backgroundColor: accentOrange,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -722,7 +713,7 @@ Widget _buildTripExpansionTile(BuildContext context, RideRecord ride) {
                   Icons.location_on_outlined,
                   'Start:',
                   '8.28055, 124.27063',
-                  Colors.green,
+                  accentOrange,
                 ),
                 _buildCoordinateRow(
                   Icons.location_off_outlined,
@@ -872,181 +863,246 @@ Widget _buildCoordinateRow(
 // DISCOUNT SELECTION & CONFIRMATION POPUP
 // ===========================================================================
 void _showDiscountDialog(BuildContext parentContext, TaxiMeterBloc bloc) {
-  // 1. Initial State Variables (Defaults to Regular)
   String selectedTitle = 'REGULAR';
   double selectedRate = 0.0;
 
-  // 2. The List of Available Discounts
   final List<Map<String, dynamic>> discountOptions = [
-    {'title': 'REGULAR', 'rate': 0.0, 'subtitle': 'Standard Fare'},
-    {'title': 'SENIOR CITIZEN', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
-    {'title': 'PWD', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
-    {'title': 'STUDENT', 'rate': 0.20, 'subtitle': '20% LTFRB Discount'},
+    {
+      'title': 'REGULAR',
+      'rate': 0.0,
+      'subtitle': 'Standard fare without adjustments',
+      'icon': Icons.person_outline,
+    },
+    {
+      'title': 'SENIOR CITIZEN',
+      'rate': 0.20,
+      'subtitle': '20% Government Mandated Discount',
+      'icon': Icons.elderly,
+    },
+    {
+      'title': 'PWD',
+      'rate': 0.20,
+      'subtitle': '20% Government Mandated Discount',
+      'icon': Icons.accessible,
+    },
+    {
+      'title': 'STUDENT',
+      'rate': 0.20,
+      'subtitle': '20% Educational Discount',
+      'icon': Icons.school_outlined,
+    },
   ];
 
   showDialog(
     context: parentContext,
-    barrierDismissible: false, // Prevents closing by tapping outside
+    barrierDismissible: false,
     builder: (BuildContext dialogContext) {
-      // StatefulBuilder allows the dialog UI to update when an item is tapped
       return StatefulBuilder(
         builder: (context, setState) {
           return Dialog(
-            backgroundColor: const Color(0xFF1B222C),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Center(
-                    child: Text(
-                      "SELECT DISCOUNT",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Container(
+              width: 500,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B222C),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFF2A313E), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(150),
+                    blurRadius: 30,
+                    spreadRadius: 5,
                   ),
-                  const SizedBox(height: 20),
-
-                  // 3. The Vertical List of Options
-                  ...discountOptions.map((option) {
-                    bool isSelected = selectedTitle == option['title'];
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: InkWell(
-                        onTap: () {
-                          // Update the selected state!
-                          setState(() {
-                            selectedTitle = option['title'];
-                            selectedRate = option['rate'];
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                            horizontal: 20,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF5A8EE2).withOpacity(0.2)
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFF5A8EE2)
-                                  : const Color(0xFF2A313E),
-                              width: 2,
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header Section
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF7121).withAlpha(20),
+                        border: const Border(
+                          bottom: BorderSide(color: Color(0xFF2A313E)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF7121).withAlpha(40),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            child: const Icon(Icons.confirmation_num_outlined, color: Color(0xFFFF7121), size: 28),
                           ),
-                          child: Row(
+                          const SizedBox(width: 20),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Radio button visual
-                              Icon(
-                                isSelected
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_unchecked,
-                                color: isSelected
-                                    ? const Color(0xFF5A8EE2)
-                                    : Colors.grey,
-                                size: 24,
+                              Text(
+                                "TRIP DISCOUNT",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                ),
                               ),
-                              const SizedBox(width: 16),
-                              // Text details
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    option['title'],
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.white70,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    option['subtitle'],
-                                    style: const TextStyle(
-                                      color: Color(0xFF8B95A5),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                "Select applicable discount for this ride",
+                                style: TextStyle(color: Color(0xFF8B95A5), fontSize: 13),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
-                    );
-                  }).toList(),
+                    ),
 
-                  const SizedBox(height: 24),
-
-                  // 4. Action Buttons (Cancel & Confirm)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text(
-                            "CANCEL",
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                Colors.red, // Keeps the "Stop" action obvious
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () {
-                            // 1. Close the dialog
-                            Navigator.pop(dialogContext);
-
-                            // 2. Open the Final Confirmation Dialog
-                            _showFinalConfirmationDialog(
-                              parentContext,
-                              selectedTitle,
-                              selectedRate,
+                    // Selection Area
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
+                      child: Column(
+                        children: [
+                          ...discountOptions.map((option) {
+                            bool isSelected = selectedTitle == option['title'];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    selectedTitle = option['title'];
+                                    selectedRate = option['rate'];
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFFF7121).withAlpha(25) : Colors.black.withAlpha(30),
+                                    border: Border.all(
+                                      color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF2A313E),
+                                      width: isSelected ? 2.5 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF7121).withAlpha(40),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF1B222C),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF2A313E),
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          option['icon'],
+                                          color: isSelected ? Colors.black : const Color(0xFF8B95A5),
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 18),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              option['title'],
+                                              style: TextStyle(
+                                                color: isSelected ? Colors.white : Colors.white70,
+                                                fontSize: 17,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              option['subtitle'],
+                                              style: TextStyle(
+                                                color: isSelected ? Colors.white.withAlpha(140) : const Color(0xFF8B95A5),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(Icons.check_circle, color: Color(0xFFFF7121), size: 24),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             );
-                          },
-                          child: const Text(
-                            "CONFIRM & STOP",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          }),
+
+                          const SizedBox(height: 16),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 56,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF8B95A5),
+                                      side: const BorderSide(color: Color(0xFF2A313E)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    onPressed: () => Navigator.pop(dialogContext),
+                                    child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                flex: 2,
+                                child: SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      elevation: 0,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                      _showFinalConfirmationDialog(
+                                        parentContext,
+                                        selectedTitle,
+                                        selectedRate,
+                                      );
+                                    },
+                                    child: const Text(
+                                      "CONFIRM & STOP",
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );

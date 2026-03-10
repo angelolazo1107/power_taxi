@@ -24,6 +24,7 @@ class HardwareMeterService {
     required double subtotal,
     required double discountAmount,
     required double finalFare,
+    bool is80mm = false, // Add this parameter to toggle sizes
   }) async {
     final now = DateTime.now();
     final dateStr =
@@ -36,53 +37,104 @@ class HardwareMeterService {
       seconds: elapsedSeconds,
     ).toString().split('.').first.padLeft(8, "0");
 
+    // Dynamic Font Sizes (Reduces size for 58mm to prevent wrapping)
+    int headerSize = is80mm ? 30 : 24;
+    int subHeaderSize = is80mm ? 22 : 19;
+    int bodySize = is80mm ? 24 : 20;
+    int totalSize = is80mm ? 32 : 26;
+
     // 1. Header (Business Info)
     await SunmiPrinter.printText(
       'POWERTAXI METRO',
       style: SunmiTextStyle(
         bold: true,
         align: SunmiPrintAlign.CENTER,
-        fontSize: 30,
+        fontSize: headerSize,
       ),
     );
+
     await SunmiPrinter.printText(
       'ROBERT A. MARTINEZ TRANSPORT SERVICES INC.',
       style: SunmiTextStyle(
         align: SunmiPrintAlign.CENTER,
         bold: true,
-        fontSize: 22,
+        fontSize: subHeaderSize,
       ),
     );
+
     await SunmiPrinter.printText(
-      '1976 Capt. M. Reyes St., Bangkal, Makati City\nVAT REG TIN: 123-456-789-00000\nTEL NO.: 0992-682-0302',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
+      '1976 Capt. M. Reyes St., Bangkal, Makati City\nVAT REG TIN: 123-456-789-00000\nTEL NO.: 0992-682-0302\nMIN: TXM-000001\nSERIAL NO.: SN-2026-0001\nDATE ISSUED: 03/01/2026',
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        fontSize: subHeaderSize,
+      ),
     );
 
     await SunmiPrinter.line();
 
-    // 2. Transaction Info
-    await _print80mmRow('O.R. NO.:', rideId.substring(0, 8).toUpperCase());
-    await _print80mmRow('DATE/TIME:', '$dateStr $timeStr');
-    await _print80mmRow('PLATE NO.:', 'ABC1234');
-    await _print80mmRow('DRIVER:', 'JUAN DELA CRUZ');
-    await _print80mmRow('FLAG DOWN:', 'PHP 45.00');
+    // 2. Transaction Info using a safe Row helper
+    await _adaptiveRow(
+      'O.R. NO.:',
+      rideId.substring(0, 8).toUpperCase(),
+      bodySize,
+    );
+    await _adaptiveRow('DATE/TIME:', '$dateStr $timeStr', bodySize);
+    await _adaptiveRow('PLATE NO.:', 'ABC1234', bodySize);
+    await _adaptiveRow('BODY NO.:', 'TX-014', bodySize);
+    await _adaptiveRow('DRIVER:', 'JUAN DELA CRUZ', bodySize);
 
     await SunmiPrinter.printText(
       '------------------------------------------',
       style: SunmiTextStyle(align: SunmiPrintAlign.CENTER),
     );
 
-    // 3. Trip Metrics
-    await _print80mmRow('DISTANCE:', '${distanceKm.toStringAsFixed(2)} KM');
-    await _print80mmRow('WAITING TIME:', waitingTime);
+    // 3. Trip Details
+    await SunmiPrinter.printText(
+      'TRIP DETAILS',
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        bold: true,
+        fontSize: bodySize,
+      ),
+    );
+    await _adaptiveRow(
+      'DISTANCE:',
+      '${distanceKm.toStringAsFixed(2)} KM',
+      bodySize,
+    );
+    await _adaptiveRow('WAITING TIME:', waitingTime, bodySize);
+
+    await SunmiPrinter.printText(
+      '------------------------------------------',
+      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER),
+    );
 
     // 4. Financial Breakdown
+    await SunmiPrinter.printText(
+      'FARE BREAKDOWN',
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        bold: true,
+        fontSize: bodySize,
+      ),
+    );
+    await _adaptiveRow('FLAG DOWN:', 'PHP 45.00', bodySize);
+    await _adaptiveRow(
+      'DISTANCE FARE:',
+      'PHP ${(distanceKm * 13.5).toStringAsFixed(2)}',
+      bodySize,
+    );
 
     if (discountAmount > 0) {
-      await _print80mmRow('SUBTOTAL:', 'PHP ${subtotal.toStringAsFixed(2)}');
-      await _print80mmRow(
-        "Discount",
+      await _adaptiveRow(
+        'SUBTOTAL:',
+        'PHP ${subtotal.toStringAsFixed(2)}',
+        bodySize,
+      );
+      await _adaptiveRow(
+        'DISCOUNT:',
         '-PHP ${discountAmount.toStringAsFixed(2)}',
+        bodySize,
       );
     }
 
@@ -93,16 +145,16 @@ class HardwareMeterService {
       cols: [
         SunmiColumn(
           text: 'TOTAL FARE:',
-          width: 14,
-          style: SunmiTextStyle(bold: true, fontSize: 28),
+          width: 12,
+          style: SunmiTextStyle(bold: true, fontSize: totalSize),
         ),
         SunmiColumn(
           text: 'PHP ${finalFare.toStringAsFixed(2)}',
-          width: 16,
+          width: 18,
           style: SunmiTextStyle(
             bold: true,
             align: SunmiPrintAlign.RIGHT,
-            fontSize: 28,
+            fontSize: totalSize,
           ),
         ),
       ],
@@ -113,36 +165,45 @@ class HardwareMeterService {
       style: SunmiTextStyle(align: SunmiPrintAlign.CENTER),
     );
 
-    // 6. Mandatory BIR Footer
+    // 6. Mandatory BIR Footer (Supplier Info)
     await SunmiPrinter.printText(
       'THIS SERVES AS AN OFFICIAL RECEIPT',
       style: SunmiTextStyle(
         align: SunmiPrintAlign.CENTER,
         bold: true,
-        fontSize: 24,
+        fontSize: bodySize,
       ),
     );
 
     await SunmiPrinter.printText(
-      'PTU NO.: PTU-2026-0001',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
-    );
-    await SunmiPrinter.printText(
-      'Serial No.: PTU-2026-0001',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
-    );
-    await SunmiPrinter.printText(
-      'MIN: PTU-2026-0001',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
-    );
-    await SunmiPrinter.printText(
-      'Accreditation NO.: PTU-2026-0001',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 24),
+      'ACCREDITED SUPPLIER: NFINITE IT SOLUTIONS\nACCREDITATION NO.: ACC-2026-001\nPTU NO.: PTU-2026-0001\nDATE ISSUED: 03/01/2026',
+      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 18),
     );
 
     // 7. Feed and Cut
     await SunmiPrinter.lineWrap(4);
-    await SunmiPrinter.cutPaper(); // New method from your class definition
+    await SunmiPrinter.cutPaper();
+  }
+
+  /// Helper method to ensure rows fit on both 58mm and 80mm
+  Future<void> _adaptiveRow(String label, String value, int fontSize) async {
+    await SunmiPrinter.printRow(
+      cols: [
+        SunmiColumn(
+          text: label,
+          width: 12,
+          style: SunmiTextStyle(fontSize: fontSize),
+        ),
+        SunmiColumn(
+          text: value,
+          width: 18,
+          style: SunmiTextStyle(
+            fontSize: fontSize,
+            align: SunmiPrintAlign.RIGHT,
+          ),
+        ),
+      ],
+    );
   }
 
   // Helper for alignment on 80mm paper (14 + 16 = 30 cols)

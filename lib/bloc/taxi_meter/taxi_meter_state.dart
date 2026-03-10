@@ -11,6 +11,8 @@ abstract class TaxiMeterState extends Equatable {
   final double subtotal;
   final double discountRate;
   final double discountAmount;
+  final bool is80mmPrinter; // NEW: Printer paper size setting
+  final int waitingSeconds;
 
   const TaxiMeterState(
     this.fare,
@@ -23,6 +25,8 @@ abstract class TaxiMeterState extends Equatable {
     this.subtotal = 0.0,
     this.discountRate = 0.0,
     this.discountAmount = 0.0,
+    this.is80mmPrinter = false, // Default is 58mm
+    this.waitingSeconds = 0,
   });
 
   @override
@@ -37,30 +41,41 @@ abstract class TaxiMeterState extends Equatable {
     subtotal,
     discountAmount,
     discountRate,
+    is80mmPrinter, // CRITICAL: Added this to props so Bloc updates correctly
+    waitingSeconds,
   ];
 }
 
 class MeterInitial extends TaxiMeterState {
-  // FIX: Pass showSettings to super
-  const MeterInitial({bool showSettings = false, int activeSettingsTab = 0})
-    : super(
-        0.0,
-        0,
-        0.0,
-        showSettings: showSettings,
-        activeSettingsTab: activeSettingsTab,
-      );
+  const MeterInitial({
+    bool showSettings = false,
+    int activeSettingsTab = 0,
+    bool is80mmPrinter = false, // Accept printer setting
+    int waitingSeconds = 0,
+  }) : super(
+         0.0,
+         0,
+         0.0,
+         showSettings: showSettings,
+         activeSettingsTab: activeSettingsTab,
+         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
+         waitingSeconds: waitingSeconds,
+       );
 }
 
 class MeterRunning extends TaxiMeterState {
+  final bool isWaiting;
+
   const MeterRunning(
     double fare,
     int elapsedSeconds,
     double distanceMeters, {
     String? rideId,
     bool showSettings = false,
-    int activeSettingsTab =
-        0, // FIX: Don't make it 'required' if you want a default
+    int activeSettingsTab = 0,
+    bool is80mmPrinter = false,
+    int waitingSeconds = 0,
+    this.isWaiting = false,
   }) : super(
          fare,
          elapsedSeconds,
@@ -68,7 +83,15 @@ class MeterRunning extends TaxiMeterState {
          rideId: rideId,
          showSettings: showSettings,
          activeSettingsTab: activeSettingsTab,
+         is80mmPrinter: is80mmPrinter,
+         waitingSeconds: waitingSeconds,
        );
+
+  @override
+  List<Object?> get props => [
+    ...super.props,
+    isWaiting,
+  ];
 }
 
 class MeterStopped extends TaxiMeterState {
@@ -83,6 +106,8 @@ class MeterStopped extends TaxiMeterState {
     bool showSettings = false,
     int activeSettingsTab = 0,
     bool zReadingPerformed = false,
+    bool is80mmPrinter = false, // Accept printer setting
+    int waitingSeconds = 0,
   }) : super(
          fare,
          elapsedSeconds,
@@ -94,9 +119,9 @@ class MeterStopped extends TaxiMeterState {
          subtotal: subtotal,
          discountAmount: discountAmount,
          discountRate: discountRate,
+         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
+         waitingSeconds: waitingSeconds,
        );
-
-  
 }
 
 class MeterPaused extends TaxiMeterState {
@@ -107,6 +132,8 @@ class MeterPaused extends TaxiMeterState {
     String? rideId,
     bool showSettings = false,
     int activeSettingsTab = 0,
+    bool is80mmPrinter = false, // Accept printer setting
+    int waitingSeconds = 0,
   }) : super(
          fare,
          seconds,
@@ -114,5 +141,7 @@ class MeterPaused extends TaxiMeterState {
          rideId: rideId,
          showSettings: showSettings,
          activeSettingsTab: activeSettingsTab,
+         is80mmPrinter: is80mmPrinter, // PASS TO SUPER
+         waitingSeconds: waitingSeconds,
        );
 }

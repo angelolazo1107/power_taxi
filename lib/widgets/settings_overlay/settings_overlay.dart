@@ -4,107 +4,84 @@ import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_event.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
 
+// ─────────────────────────────────────────────
+//  DESIGN TOKENS
+// ─────────────────────────────────────────────
+const Color _bg = Color(0xFF0D1117);
+const Color _surface = Color(0xFF161C26);
+const Color _card = Color(0xFF1C2433);
+const Color _border = Color(0xFF252E3E);
+const Color _faint = Color(0xFF5E6B80);
+const Color _muted = Color(0xFF8B95A5);
+const Color _orange = Color(0xFFFF7121);
+const Color _gold = Color(0xFFFFB347);
+
+// ─────────────────────────────────────────────
+//  MAIN ENTRY POINT
+// ─────────────────────────────────────────────
 Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
   final int activeTab = state.activeSettingsTab;
 
   return Stack(
     children: [
-      // 1. Semi-transparent background blur (Tap to close)
+      // Scrim
       Positioned.fill(
         child: GestureDetector(
           onTap: () =>
               context.read<TaxiMeterBloc>().add(const ToggleSettings(false)),
-          child: Container(color: Colors.black54),
+          child: Container(color: Colors.black.withAlpha(180)),
         ),
       ),
 
-      // 2. The Floating Modal Card
+      // Modal card
       Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          width: double.infinity,
-          constraints: const BoxConstraints(
-            maxHeight: 620,
-          ), // Height allowed for larger forms
-          decoration: BoxDecoration(
-            color: const Color(0xFF141A22), // Deep Navy background
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF2A313E), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // --- TAB HEADER ---
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1B222C),
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFF2A313E)),
+        child: GestureDetector(
+          onTap: () {},
+          child: Container(
+            width: 780,
+            constraints: const BoxConstraints(maxHeight: 660),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _border, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(200),
+                  blurRadius: 60,
+                  spreadRadius: 10,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Row(
+                children: [
+                  // ── LEFT SIDEBAR ──────────────────────────────────────
+                  _SideNav(activeTab: activeTab),
+
+                  // ── RIGHT CONTENT AREA ────────────────────────────────
+                  Expanded(
+                    child: Column(
+                      children: [
+                        // Content header
+                        _ContentHeader(activeTab: activeTab),
+
+                        // Scrollable form area
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                            child: _buildTabContent(context, activeTab, state),
+                          ),
+                        ),
+
+                        // Action bar
+                        _ActionBar(activeTab: activeTab),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildTabItem(
-                        context,
-                        'PROFILE',
-                        Icons.person_outline,
-                        index: 0,
-                        activeIndex: activeTab,
-                      ),
-                      _buildTabItem(
-                        context,
-                        'RATES',
-                        Icons.show_chart,
-                        index: 1,
-                        activeIndex: activeTab,
-                      ),
-                      _buildTabItem(
-                        context,
-                        'RECEIPT',
-                        Icons.receipt_outlined,
-                        index: 2,
-                        activeIndex: activeTab,
-                      ),
-                      _buildTabItem(
-                        context,
-                        'REPORTS',
-                        Icons.assessment_outlined,
-                        index: 3,
-                        activeIndex: activeTab,
-                      ),
-                      _buildTabItem(
-                        context,
-                        'SYSTEM',
-                        Icons.settings_outlined,
-                        index: 4,
-                        activeIndex: activeTab,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // --- DYNAMIC FORM CONTENT ---
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: _buildTabContent(context, activeTab),
-                  ),
-                ),
-
-                // --- DYNAMIC ACTION BUTTONS ---
-                _buildOverlayActions(context, activeTab),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -113,401 +90,811 @@ Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
   );
 }
 
-Widget _buildOverlayActions(BuildContext context, int activeTab) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: const BoxDecoration(
-      border: Border(top: BorderSide(color: Color(0xFF2A313E))),
-    ),
-    // THE LOGIC: If it's Reports (3) OR System (4), show ONLY "Close Menu"
-    child: (activeTab == 3 || activeTab == 4)
-        ? SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1B222C), // Dark theme button
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+// ─────────────────────────────────────────────
+//  SIDE NAV (left panel)
+// ─────────────────────────────────────────────
+class _SideNav extends StatelessWidget {
+  final int activeTab;
+  const _SideNav({required this.activeTab});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 180,
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(right: BorderSide(color: _border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header branding
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _border)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: _orange.withAlpha(25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _orange.withAlpha(60)),
+                  ),
+                  child: const Icon(Icons.settings, color: _orange, size: 16),
                 ),
-                side: const BorderSide(color: Color(0xFF2A313E)),
-                elevation: 0,
-              ),
-              onPressed: () => context.read<TaxiMeterBloc>().add(
-                const ToggleSettings(false),
-              ),
-              child: const Text(
-                'Close Menu',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                const SizedBox(width: 10),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SETTINGS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    Text(
+                      'CONFIGURATION',
+                      style: TextStyle(
+                        color: _faint,
+                        fontSize: 9,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Nav items
+          const SizedBox(height: 8),
+          _NavItem(
+            icon: Icons.person_outline,
+            label: 'PROFILE',
+            index: 0,
+            activeTab: activeTab,
+          ),
+          _NavItem(
+            icon: Icons.receipt_outlined,
+            label: 'RECEIPT',
+            index: 1,
+            activeTab: activeTab,
+          ),
+          _NavItem(
+            icon: Icons.assessment_outlined,
+            label: 'REPORTS',
+            index: 2,
+            activeTab: activeTab,
+          ),
+          _NavItem(
+            icon: Icons.settings_outlined,
+            label: 'SYSTEM',
+            index: 3,
+            activeTab: activeTab,
+          ),
+
+          const Spacer(),
+
+          // Close button at bottom
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Builder(
+              builder: (ctx) => GestureDetector(
+                onTap: () =>
+                    ctx.read<TaxiMeterBloc>().add(const ToggleSettings(false)),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withAlpha(15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.redAccent.withAlpha(50)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.close, color: Colors.redAccent, size: 14),
+                      SizedBox(width: 8),
+                      Text(
+                        'CLOSE',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          )
-        // OTHERWISE: Show the Cancel and Save Changes buttons
-        : Row(
-            children: [
-              Expanded(
-                flex: 1,
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF2D3543)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    onPressed: () => context.read<TaxiMeterBloc>().add(
-                      const ToggleSettings(false),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final int activeTab;
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.activeTab,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isActive = index == activeTab;
+    return GestureDetector(
+      onTap: () => context.read<TaxiMeterBloc>().add(ChangeSettingsTab(index)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: isActive ? _orange.withAlpha(22) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? _orange.withAlpha(60) : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isActive ? _orange : _faint, size: 16),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? _orange : _muted,
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
+                letterSpacing: 1.0,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 1,
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF7121), // Accent Orange
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      // TODO: Implement Save logic here
-                      context.read<TaxiMeterBloc>().add(
-                        const ToggleSettings(false),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.save_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    label: const Text(
-                      'Save Changes',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
+            ),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: _orange,
+                  shape: BoxShape.circle,
                 ),
               ),
             ],
-          ),
-  );
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-Widget _buildTabContent(BuildContext context, int index) {
+// ─────────────────────────────────────────────
+//  CONTENT HEADER
+// ─────────────────────────────────────────────
+class _ContentHeader extends StatelessWidget {
+  final int activeTab;
+  const _ContentHeader({required this.activeTab});
+
+  static const _titles = [
+    'Driver Profile',
+    'Receipt Config',
+    'Reports',
+    'System',
+  ];
+  static const _subtitles = [
+    'Driver information and credentials',
+    'Receipt header and footer configuration',
+    'X-Reading and Z-Reading reports',
+    'App info, printer size and calibration',
+  ];
+  static const _icons = [
+    Icons.person_outline,
+    Icons.show_chart,
+    Icons.receipt_outlined,
+    Icons.assessment_outlined,
+    Icons.settings_outlined,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 14),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: _orange.withAlpha(20),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _orange.withAlpha(50)),
+            ),
+            child: Icon(_icons[activeTab], color: _orange, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _titles[activeTab],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _subtitles[activeTab],
+                style: const TextStyle(color: _muted, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  ACTION BAR
+// ─────────────────────────────────────────────
+class _ActionBar extends StatelessWidget {
+  final int activeTab;
+  const _ActionBar({required this.activeTab});
+
+  @override
+  Widget build(BuildContext context) {
+    final isReadOnly = activeTab == 3 || activeTab == 4;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(top: BorderSide(color: _border)),
+      ),
+      child: Row(
+        mainAxisAlignment: isReadOnly
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.spaceBetween,
+        children: [
+          if (!isReadOnly)
+            Text(
+              '* Changes require admin authorization',
+              style: TextStyle(
+                color: _faint,
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          Row(
+            children: [
+              if (!isReadOnly) ...[
+                _ghostButton(
+                  context,
+                  label: 'Cancel',
+                  icon: Icons.close,
+                  onTap: () => context.read<TaxiMeterBloc>().add(
+                    const ToggleSettings(false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _accentButton(
+                  context,
+                  label: 'Save Changes',
+                  icon: Icons.check,
+                  onTap: () => context.read<TaxiMeterBloc>().add(
+                    const ToggleSettings(false),
+                  ),
+                ),
+              ] else
+                _ghostButton(
+                  context,
+                  label: 'Close',
+                  icon: Icons.close,
+                  onTap: () => context.read<TaxiMeterBloc>().add(
+                    const ToggleSettings(false),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ghostButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: _muted, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _accentButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF7121), Color(0xFFFF9558)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: _orange.withAlpha(60),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  TAB CONTENT ROUTER
+// ─────────────────────────────────────────────
+Widget _buildTabContent(BuildContext context, int index, TaxiMeterState state) {
   switch (index) {
     case 1:
-      return _buildRatesForm();
-    case 2:
       return _buildReceiptForm();
-    case 3:
+    case 2:
       return _buildReportsForm(context);
-    case 4:
-      return _buildSystemForm();
-
-    case 0:
+    case 3:
+      return _buildSystemForm(context, state);
     default:
       return _buildProfileForm();
   }
 }
 
-Widget _buildReceiptForm() {
+// ─────────────────────────────────────────────
+//  PROFILE TAB
+// ─────────────────────────────────────────────
+Widget _buildProfileForm() {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      // Info Box
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B222C), // Slightly lighter dark background
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: const Text(
-          'Configure Receipt Header/Footer details.',
-          style: TextStyle(
-            color: Color(0xFF8B95A5), // Muted text color
-            fontSize: 12,
-          ),
-        ),
-      ),
-      const SizedBox(height: 20),
-
-      // Input Fields
-      _buildInputField('COMPANY TIN', '123-456-789-000'),
-      const SizedBox(height: 12),
-      _buildInputField('ADDRESS', '123 EDSA, Quezon City, Metro Manila'),
-      const SizedBox(height: 12),
-      _buildInputField('TELEPHONE', '(02) 8123-4567'),
-      const SizedBox(height: 12),
-      _buildInputField('PERMIT NO.', 'LTFRB-2024-001'),
-      const SizedBox(height: 12),
-      _buildInputField('MIN (MACHINE ID)', '18082023-001'),
-      const SizedBox(height: 12),
-      _buildInputField('SERIAL NO.', 'SN-77889900'),
-    ],
-  );
-}
-
-Widget _buildSystemForm() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // 1. System Info Box
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B222C), // Lighter dark background
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Column(
-          children: [
-            _buildSystemInfoRow('App Version', '1.1.0-metro'),
-            const SizedBox(height: 12),
-            _buildSystemInfoRow('Config Version', '1.2.0'),
-            const SizedBox(height: 12),
-            _buildSystemInfoRow('Last Calibrated', '3/7/2026, 2:59:33 PM'),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-
-      // 2. Action Buttons Row (Calibrate & Inspection)
+      _sectionLabel('DRIVER INFORMATION', Icons.person_outline, _orange),
+      const SizedBox(height: 14),
       Row(
         children: [
           Expanded(
-            child: _buildSystemActionCard(
-              title: 'CALIBRATE',
-              icon: Icons.draw_outlined, // Pen nib icon
-              textColor: Colors.white,
-              borderColor: const Color(0xFF38404E),
-              backgroundColor: const Color(0xFF1B222C),
-              onTap: () => print('Calibrate tapped'),
+            child: _inputField(
+              'DRIVER NAME',
+              'Juan Dela Cruz',
+              Icons.person_outline,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: _buildSystemActionCard(
-              title: 'INSPECTION',
-              icon: Icons.verified_user_outlined, // Shield with check
-              textColor: const Color(0xFF4CAF50), // Green text/icon
-              borderColor: const Color(0xFF1B4332), // Dark green border
-              backgroundColor: const Color(0xFF12201A), // Very dark green tint
-              onTap: () => print('Inspection tapped'),
+            child: _inputField(
+              'PLATE NUMBER',
+              'ABC-1234',
+              Icons.directions_car_outlined,
             ),
           ),
         ],
       ),
-      const SizedBox(height: 24),
-
-      // 3. Configuration Logs
+      const SizedBox(height: 12),
       Row(
         children: [
-          const Icon(Icons.history, color: Color(0xFF8B95A5), size: 16),
-          const SizedBox(width: 8),
-          const Text(
-            'CONFIGURATION LOGS',
-            style: TextStyle(
-              color: Color(0xFF8B95A5),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+          Expanded(
+            child: _inputField(
+              'OPERATOR',
+              'METRO TRANSIT CORP.',
+              Icons.business_outlined,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: _inputField('C.C. BODY NO.', 'UV-9988', Icons.tag)),
+        ],
+      ),
+      const SizedBox(height: 20),
+      _sectionLabel('ACCREDITATION', Icons.verified_user_outlined, _gold),
+      const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(
+            child: _readonlyChip(
+              Icons.badge_outlined,
+              'LTFRB PERMIT',
+              'LTFRB-2024-001',
+              _orange,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _readonlyChip(
+              Icons.fingerprint,
+              'DRIVER ID',
+              'DRV-990821',
+              _orange,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
+    ],
+  );
+}
+
+
+// ─────────────────────────────────────────────
+//  RECEIPT TAB
+// ─────────────────────────────────────────────
+Widget _buildReceiptForm() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionLabel('HEADER CONFIGURATION', Icons.receipt_long, _orange),
+      const SizedBox(height: 14),
+      _inputField('COMPANY TIN', '123-456-789-000', Icons.numbers),
+      const SizedBox(height: 10),
+      _inputField(
+        'ADDRESS',
+        '123 EDSA, Quezon City, Metro Manila',
+        Icons.location_on_outlined,
+      ),
+      const SizedBox(height: 10),
+      _inputField('TELEPHONE', '(02) 8123-4567', Icons.phone_outlined),
+      const SizedBox(height: 16),
+      _sectionLabel(
+        'ACCREDITATION NUMBERS',
+        Icons.confirmation_number_outlined,
+        _orange,
+      ),
+      const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(
+            child: _inputField(
+              'PERMIT NO.',
+              'LTFRB-2024-001',
+              Icons.pin_outlined,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _inputField(
+              'MACHINE ID (MIN)',
+              '18082023-001',
+              Icons.computer,
             ),
           ),
         ],
       ),
       const SizedBox(height: 10),
-      Container(
-        height: 120, // Fixed height to match screenshot look
-        width: double.infinity,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D1117), // Deepest background color
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFF2A313E)),
-        ),
-        child: const Text(
-          'No changes recorded.',
-          style: TextStyle(
-            color: Color(0xFF4A5568), // Faint text color
-            fontSize: 12,
-          ),
-        ),
-      ),
+      _inputField('SERIAL NO.', 'SN-77889900', Icons.qr_code),
+      const SizedBox(height: 20),
     ],
   );
 }
 
+// ─────────────────────────────────────────────
+//  REPORTS TAB
+// ─────────────────────────────────────────────
 Widget _buildReportsForm(BuildContext context) {
   return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      // Shift Started Banner
+      // Shift started banner
       Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B222C),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF2A313E)),
+          color: _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
         ),
         child: Row(
           children: [
-            const Icon(Icons.schedule, color: Color(0xFFFF7121), size: 24),
-            const SizedBox(width: 16),
-            Column(
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _orange.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.schedule, color: _orange, size: 18),
+            ),
+            const SizedBox(width: 14),
+            const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'SHIFT STARTED',
                   style: TextStyle(
-                    color: Color(0xFF8B95A5),
-                    fontSize: 11,
+                    color: _muted,
+                    fontSize: 9,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
                   ),
                 ),
-                const SizedBox(height: 4),
-                // In production, format the actual shift start time here
-                const Text(
-                  '3/7/2026, 2:59:39 PM',
+                SizedBox(height: 3),
+                Text(
+                  '03/10/2026  8:00 AM',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     fontFamily: 'monospace',
                   ),
                 ),
               ],
             ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _gold.withAlpha(20),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _gold.withAlpha(60)),
+              ),
+              child: const Text(
+                'ACTIVE',
+                style: TextStyle(
+                  color: _gold,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-      const SizedBox(height: 16),
-
-      // X-Reading Card
-      // X-Reading Card
-      _buildReportCard(
+      const SizedBox(height: 14),
+      _sectionLabel('READING REPORTS', Icons.assessment_outlined, _orange),
+      const SizedBox(height: 12),
+      _reportCard(
         context,
         title: 'X-READING',
-        subtitle: 'Current Shift Report',
-        icon: Icons.insert_drive_file, // Or Icons.receipt
-        iconBgColor: const Color(0xFF243346), // Muted Blueish
-        iconColor: const Color(0xFF5A8EE2),
-        trailingIcon: Icons.print_outlined,
-        onTap: () {
-          // Trigger X-Reading print via BLoC instantly
-          context.read<TaxiMeterBloc>().add(PrintXReading());
-        },
+        subtitle: 'Current shift — prints without resetting',
+        icon: Icons.insert_drive_file_outlined,
+        accent: _orange,
+        tag: 'NON-RESET',
+        tagColor: _orange,
+        onTap: () => context.read<TaxiMeterBloc>().add(PrintXReading()),
       ),
-      const SizedBox(height: 12),
-
-      // Z-Reading Card
-      _buildReportCard(
+      const SizedBox(height: 10),
+      _reportCard(
         context,
         title: 'Z-READING',
-        subtitle: 'End of Day & Reset',
+        subtitle: 'End of day — prints and clears totals',
         icon: Icons.sync,
-        iconBgColor: const Color(0xFF38261F), // Muted Orange/Brown
-        iconColor: const Color(0xFFFF7121),
-        onTap: () {
-          // Show confirmation dialog before Z-Reading because it resets data
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(
-                0xFF141A22,
-              ), // Matching your dark theme
-              title: const Text(
-                "Perform Z-Reading?",
-                style: TextStyle(color: Colors.white),
-              ),
-              content: const Text(
-                "This will print the final report and clear today's totals. You cannot undo this.",
-                style: TextStyle(color: Colors.white70),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text(
-                    "CANCEL",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF7121),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx); // Close the dialog first
-                    // Trigger Z-Reading print via BLoC
-                    context.read<TaxiMeterBloc>().add(PrintZReading());
-                  },
-                  child: const Text(
-                    "PRINT",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+        accent: _orange,
+        tag: 'RESETS DATA',
+        tagColor: _orange,
+        onTap: () => showDialog(
+          context: context,
+          builder: (ctx) => _ZReadingDialog(ctx: ctx),
+        ),
       ),
+      const SizedBox(height: 20),
     ],
   );
 }
 
-Widget _buildSystemActionCard({
+class _ZReadingDialog extends StatelessWidget {
+  final BuildContext ctx;
+  const _ZReadingDialog({required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: _surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _border),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _orange.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: _orange,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Perform Z-Reading?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'This will print the final end-of-day report and permanently clear today\'s totals. This action cannot be undone.',
+        style: TextStyle(color: _muted, fontSize: 13, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text(
+            'CANCEL',
+            style: TextStyle(color: _muted, fontWeight: FontWeight.bold),
+          ),
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _orange,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () {
+            Navigator.pop(ctx);
+            context.read<TaxiMeterBloc>().add(PrintZReading());
+          },
+          icon: const Icon(Icons.print, size: 16, color: Colors.white),
+          label: const Text(
+            'PRINT & RESET',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _reportCard(
+  BuildContext context, {
   required String title,
+  required String subtitle,
   required IconData icon,
-  required Color textColor,
-  required Color borderColor,
-  required Color backgroundColor,
+  required Color accent,
+  required String tag,
+  required Color tagColor,
   required VoidCallback onTap,
 }) {
-  return InkWell(
+  return GestureDetector(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(6),
     child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: borderColor),
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withAlpha(40)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Icon(icon, color: textColor, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: accent.withAlpha(20),
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tagColor.withAlpha(20),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: tagColor.withAlpha(60)),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: tagColor,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accent.withAlpha(15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.print_outlined, color: accent, size: 18),
           ),
         ],
       ),
@@ -515,116 +902,211 @@ Widget _buildSystemActionCard({
   );
 }
 
-Widget _buildSystemInfoRow(String label, String value) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(color: Color(0xFF8B95A5), fontSize: 13),
-      ),
-      Text(
-        value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontFamily: 'monospace', // Matches your screenshot's number style
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildRatesForm() {
+// ─────────────────────────────────────────────
+//  SYSTEM TAB
+// ─────────────────────────────────────────────
+Widget _buildSystemForm(BuildContext context, TaxiMeterState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text(
-        'FARE CONFIGURATION',
-        style: TextStyle(
-          color: Color(0xFFFF7121),
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+      _sectionLabel('SYSTEM INFORMATION', Icons.info_outline, _orange),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          children: [
+            _infoRow('App Version', '1.1.0-metro', Icons.terminal, _orange),
+            const Divider(color: _border, height: 20),
+            _infoRow('Config Version', '1.2.0', Icons.tune, _gold),
+            const Divider(color: _border, height: 20),
+            _infoRow('Last Calibrated', '03/07/2026', Icons.update, _orange),
+          ],
+        ),
+      ),
+      const SizedBox(height: 14),
+
+      _sectionLabel('PRINTER SETTINGS', Icons.print_outlined, _orange),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _orange.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.receipt_long, color: _orange, size: 18),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                'Paper Size',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1117),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<bool>(
+                  value: state.is80mmPrinter,
+                  dropdownColor: _surface,
+                  icon: const Icon(Icons.unfold_more, color: _muted, size: 18),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: false,
+                      child: Text('58 mm Thermal'),
+                    ),
+                    DropdownMenuItem(value: true, child: Text('80 mm Thermal')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      context.read<TaxiMeterBloc>().add(TogglePrinterSize(v));
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 14),
+
+      _sectionLabel('MAINTENANCE', Icons.build_circle_outlined, _muted),
+      const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(
+            child: _actionTile(
+              title: 'CALIBRATE',
+              subtitle: 'Reset meter readings',
+              icon: Icons.tune,
+              accent: _orange,
+              onTap: () {},
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _actionTile(
+              title: 'INSPECTION',
+              subtitle: 'Run compliance check',
+              icon: Icons.verified_user_outlined,
+              accent: _gold,
+              onTap: () {},
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+
+      _sectionLabel('CONFIGURATION LOGS', Icons.history, _faint),
+      const SizedBox(height: 10),
+      Container(
+        width: double.infinity,
+        height: 80,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF080C12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _border),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, color: _faint, size: 20),
+            SizedBox(height: 6),
+            Text(
+              'No configuration changes recorded.',
+              style: TextStyle(color: _faint, fontSize: 11),
+            ),
+          ],
         ),
       ),
       const SizedBox(height: 20),
-      _buildInputField('FLAG DOWN RATE (₱)', '50.00'),
-      const SizedBox(height: 16),
-      Row(
-        children: [
-          Expanded(child: _buildInputField('PER KM (₱)', '13.50')),
-          const SizedBox(width: 12),
-          Expanded(child: _buildInputField('PER MIN (₱)', '2.00')),
-        ],
-      ),
-      const SizedBox(height: 24),
-      const Text(
-        'Note: Changes to rates require administrative authorization and will be logged to the server.',
-        style: TextStyle(
-          color: Color(0xFF8B95A5),
-          fontSize: 10,
-          fontStyle: FontStyle.italic,
-        ),
-      ),
     ],
   );
 }
 
-Widget _buildProfileForm() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+// ─────────────────────────────────────────────
+//  SHARED HELPER WIDGETS
+// ─────────────────────────────────────────────
+Widget _sectionLabel(String label, IconData icon, Color accent) {
+  return Row(
     children: [
-      const Text(
-        'DRIVER INFORMATION',
+      Icon(icon, color: accent, size: 13),
+      const SizedBox(width: 7),
+      Text(
+        label,
         style: TextStyle(
-          color: Color(0xFFFF7121),
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+          color: accent,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.4,
         ),
       ),
-      const SizedBox(height: 16),
-      _buildInputField('DRIVER NAME', 'Juan Dela Cruz'),
-      const SizedBox(height: 12),
-      _buildInputField('PLATE NUMBER', 'ABC-1234'),
-      const SizedBox(height: 12),
-      _buildInputField('OPERATOR', 'METRO TRANSIT CORP.'),
-      const SizedBox(height: 12),
-      _buildInputField('C.C. BODY NO.', 'UV-9988'),
+      const SizedBox(width: 10),
+      Expanded(child: Container(height: 1, color: _border)),
     ],
   );
 }
 
-Widget _buildInputField(String label, String value) {
-  const Color textFaint = Color(0xFF8B95A5);
-  const Color borderColor = Color(0xFF38404E);
+Widget _inputField(String label, String value, IconData icon) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
         label,
         style: const TextStyle(
-          color: textFaint,
-          fontSize: 11,
+          color: _muted,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 7),
       TextField(
         controller: TextEditingController(text: value),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           filled: true,
-          fillColor: const Color(0xFF1E232D),
+          fillColor: _card,
+          prefixIcon: Icon(icon, color: _faint, size: 16),
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
+            horizontal: 14,
             vertical: 12,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: borderColor),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _orange, width: 1.5),
           ),
         ),
       ),
@@ -632,109 +1114,122 @@ Widget _buildInputField(String label, String value) {
   );
 }
 
-Widget _buildTabItem(
-  BuildContext context,
-  String label,
-  IconData icon, {
-  required int index,
-  required int activeIndex,
-}) {
-  final bool isActive = index == activeIndex;
-
-  return InkWell(
-    // Wrap in InkWell for tap support
-    onTap: () {
-      print("Tab $index tapped!"); // Debug to see if touch is registered
-      context.read<TaxiMeterBloc>().add(ChangeSettingsTab(index));
-    },
-    child: Column(
+Widget _readonlyChip(IconData icon, String label, String value, Color accent) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: _card,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: accent.withAlpha(40)),
+    ),
+    child: Row(
       children: [
-        const SizedBox(height: 8),
-        Icon(
-          icon,
-          color: isActive ? const Color(0xFFFF7121) : const Color(0xFF8B95A5),
-          size: 20,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isActive ? const Color(0xFFFF7121) : const Color(0xFF8B95A5),
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 6),
         Container(
-          height: 2,
-          width: 35,
-          color: isActive ? const Color(0xFFFF7121) : Colors.transparent,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: accent.withAlpha(18),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, color: accent, size: 14),
         ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: _faint,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        const Icon(Icons.lock_outline, color: _faint, size: 12),
       ],
     ),
   );
 }
 
-Widget _buildReportCard(
-  BuildContext context, {
+Widget _infoRow(String label, String value, IconData icon, Color accent) {
+  return Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: accent.withAlpha(18),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Icon(icon, color: accent, size: 13),
+      ),
+      const SizedBox(width: 12),
+      Text(label, style: const TextStyle(color: _muted, fontSize: 12)),
+      const Spacer(),
+      Text(
+        value,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'monospace',
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _actionTile({
   required String title,
   required String subtitle,
   required IconData icon,
-  required Color iconBgColor,
-  required Color iconColor,
-  IconData? trailingIcon,
+  required Color accent,
   required VoidCallback onTap,
 }) {
-  return InkWell(
+  return GestureDetector(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(8),
     child: Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B222C),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF2A313E)),
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withAlpha(40)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon Box
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: iconBgColor,
+              color: accent.withAlpha(18),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
+            child: Icon(icon, color: accent, size: 18),
           ),
-          const SizedBox(width: 16),
-          // Texts
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF8B95A5),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
-          // Optional trailing icon (like the printer)
-          if (trailingIcon != null)
-            Icon(trailingIcon, color: const Color(0xFF6B7A90), size: 20),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(color: _muted, fontSize: 10)),
         ],
       ),
     ),

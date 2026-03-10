@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:powertaxi/core/hardware_meter_service.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
-
-// For version 4.x.x and above
 
 import 'taxi_meter_event.dart';
 import 'taxi_meter_state.dart';
@@ -22,39 +20,74 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   final double ratePerKm = 13.50;
   final double ratePerMinute = 2.0;
 
-  TaxiMeterBloc({required this.rideRepository, required this.hardwareService})
-    : super(const MeterInitial(showSettings: false, activeSettingsTab: 0)) {
-    // Register all event handlers here
+  TaxiMeterBloc({
+    required this.rideRepository,
+    required this.hardwareService,
+  }) : super(
+         MeterInitial(
+           showSettings: false,
+           activeSettingsTab: 0,
+         ),
+       ) {
+    // Initialization & Theme
+    on<InitializeSettings>(_onInitializeSettings);
+    on<TogglePrinterSize>(_onTogglePrinterSize);
+
+    // Ride Lifecycle Handlers
     on<CheckActiveRide>(_onCheckActiveRide);
     on<StartRide>(_onStartRide);
     on<Tick>(_onTick);
     on<HardwareDistanceUpdated>(_onHardwareDistanceUpdated);
-    on<StopRide>(_onStopRide);
-    on<ResetMeter>(_onResetMeter);
     on<PauseRide>(_onPauseRide);
     on<ResumeRide>(_onResumeRide);
+    on<StartWaiting>(_onStartWaiting);
+    on<StopWaiting>(_onStopWaiting);
+    on<StopRide>(_onStopRide);
     on<CancelRide>(_onCancelRide);
-    on<ToggleSettings>(_onToggleSettings);
+    on<ResetMeter>(_onResetMeter);
     on<PrintReceipt>(_onPrintReceipt);
+
+    // Settings & Printing Handlers
+    on<ToggleSettings>(_onToggleSettings);
     on<ChangeSettingsTab>(_onChangeSettingsTab);
-    on<PrintXReading>(_onPrintXReading);
-    on<PrintZReading>(_onPrintZReading);
-  } // <--- THIS WAS THE MISSING BRACE!
+  }
 
   // ===========================================================================
-  // SETTINGS HANDLERS
+  // THEME & INITIALIZATION
   // ===========================================================================
 
-  void _onToggleSettings(ToggleSettings event, Emitter<TaxiMeterState> emit) {
-    if (state is MeterPaused) {
+  void _onInitializeSettings(
+    InitializeSettings event,
+    Emitter<TaxiMeterState> emit,
+  ) {
+    _emitStateUpdate(emit, event.is80mmPrinter);
+  }
+
+  void _onTogglePrinterSize(
+    TogglePrinterSize event,
+    Emitter<TaxiMeterState> emit,
+  ) async {
+    final bool is80mm = event.is80mm;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_80mm_printer', is80mm);
+    _emitStateUpdate(emit, is80mm);
+  }
+
+  void _emitStateUpdate(Emitter<TaxiMeterState> emit, bool is80mm) {
+    if (state is MeterStopped) {
+      final s = state as MeterStopped;
       emit(
-        MeterPaused(
-          state.fare,
-          state.elapsedSeconds,
-          state.distanceMeters,
-          rideId: state.rideId,
-          showSettings: event.isVisible,
-          activeSettingsTab: state.activeSettingsTab,
+        MeterStopped(
+          s.subtotal,
+          s.discountRate,
+          s.discountAmount,
+          s.fare,
+          s.elapsedSeconds,
+          s.distanceMeters,
+          is80mmPrinter: is80mm,
+          rideId: s.rideId,
+          showSettings: s.showSettings,
+          activeSettingsTab: s.activeSettingsTab,
         ),
       );
     } else if (state is MeterRunning) {
@@ -63,29 +96,80 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           state.fare,
           state.elapsedSeconds,
           state.distanceMeters,
+          is80mmPrinter: is80mm,
           rideId: state.rideId,
-          showSettings: event.isVisible,
+          showSettings: state.showSettings,
           activeSettingsTab: state.activeSettingsTab,
-        ),
-      );
-    } else if (state is MeterStopped) {
-      emit(
-        MeterStopped(
-          state.subtotal, // Remove "as double"
-          state.discountRate,
-          state.discountAmount,
-          state.fare,
-          state
-              .elapsedSeconds, // Use as int (matches your MeterStopped constructor)
-          state.distanceMeters,
-          rideId: state.rideId,
-          showSettings: !state.showSettings, // This toggles the UI
-          activeSettingsTab: state.activeSettingsTab,
-          zReadingPerformed: state.zReadingPerformed,
         ),
       );
     } else {
-      emit(MeterInitial(showSettings: event.isVisible, activeSettingsTab: 0));
+      emit(
+        MeterInitial(
+          is80mmPrinter: is80mm,
+          showSettings: state.showSettings,
+          activeSettingsTab: state.activeSettingsTab,
+        ),
+      );
+    }
+  }
+
+  // ===========================================================================
+  // SETTINGS HANDLERS
+  // ===========================================================================
+
+  void _onToggleSettings(ToggleSettings event, Emitter<TaxiMeterState> emit) {
+    final bool isVisible = event.isVisible;
+    if (state is MeterInitial) {
+      emit(
+        MeterInitial(
+          showSettings: isVisible,
+          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
+        ),
+      );
+    } else if (state is MeterPaused) {
+      emit(
+        MeterPaused(
+          state.fare,
+          state.elapsedSeconds,
+          state.distanceMeters,
+          rideId: state.rideId,
+          showSettings: isVisible,
+          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
+        ),
+      );
+    } else if (state is MeterRunning) {
+      final running = state as MeterRunning;
+      emit(
+        MeterRunning(
+          running.fare,
+          running.elapsedSeconds,
+          running.distanceMeters,
+          rideId: running.rideId,
+          showSettings: isVisible,
+          activeSettingsTab: running.activeSettingsTab,
+          is80mmPrinter: running.is80mmPrinter,
+          waitingSeconds: running.waitingSeconds,
+          isWaiting: running.isWaiting,
+        ),
+      );
+    } else if (state is MeterStopped) {
+      final s = state as MeterStopped;
+      emit(
+        MeterStopped(
+          s.subtotal,
+          s.discountRate,
+          s.discountAmount,
+          s.fare,
+          s.elapsedSeconds,
+          s.distanceMeters,
+          rideId: s.rideId,
+          showSettings: isVisible,
+          activeSettingsTab: s.activeSettingsTab,
+          is80mmPrinter: s.is80mmPrinter,
+        ),
+      );
     }
   }
 
@@ -93,7 +177,15 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     ChangeSettingsTab event,
     Emitter<TaxiMeterState> emit,
   ) {
-    if (state is MeterPaused) {
+    if (state is MeterInitial) {
+      emit(
+        MeterInitial(
+          showSettings: true,
+          activeSettingsTab: event.index,
+          is80mmPrinter: state.is80mmPrinter,
+        ),
+      );
+    } else if (state is MeterPaused) {
       emit(
         MeterPaused(
           state.fare,
@@ -102,42 +194,47 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           rideId: state.rideId,
           showSettings: true,
           activeSettingsTab: event.index,
+          is80mmPrinter: state.is80mmPrinter,
         ),
       );
     } else if (state is MeterRunning) {
+      final running = state as MeterRunning;
       emit(
         MeterRunning(
-          state.fare,
-          state.elapsedSeconds,
-          state.distanceMeters,
-          rideId: state.rideId,
+          running.fare,
+          running.elapsedSeconds,
+          running.distanceMeters,
+          rideId: running.rideId,
           showSettings: true,
           activeSettingsTab: event.index,
+          is80mmPrinter: running.is80mmPrinter,
+          waitingSeconds: running.waitingSeconds,
+          isWaiting: running.isWaiting,
         ),
       );
     } else if (state is MeterStopped) {
+      final s = state as MeterStopped;
       emit(
         MeterStopped(
-          state.subtotal, // 1. double (Just use the variable)
-          state.discountRate, // 2. double
-          state.discountAmount, // 3. double
-          state.fare, // 4. double
-          state.elapsedSeconds, // 5. int (DO NOT use 'as double')
-          state.distanceMeters, // 6. double
-          rideId: state.rideId,
+          s.subtotal,
+          s.discountRate,
+          s.discountAmount,
+          s.fare,
+          s.elapsedSeconds,
+          s.distanceMeters,
+          rideId: s.rideId,
           showSettings: true,
-          activeSettingsTab: event.index, // The new tab index
-          zReadingPerformed: state.zReadingPerformed,
+          activeSettingsTab: event.index,
+          is80mmPrinter: s.is80mmPrinter,
         ),
       );
-    } else {
-      emit(MeterInitial(showSettings: true, activeSettingsTab: event.index));
     }
   }
 
   // ===========================================================================
-  // 1. STATE RESTORATION (App killed and reopened)
+  // RIDE CORE LOGIC
   // ===========================================================================
+
   Future<void> _onCheckActiveRide(
     CheckActiveRide event,
     Emitter<TaxiMeterState> emit,
@@ -150,7 +247,6 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           prefs.getString('ride_start_time') ??
           DateTime.now().toIso8601String();
       final savedDistance = prefs.getDouble('accumulated_distance') ?? 0.0;
-
       final startTime = DateTime.parse(startTimeStr);
       final elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
       final restoredFare = baseFare + ((savedDistance / 1000) * ratePerKm);
@@ -161,19 +257,14 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           elapsedSeconds,
           savedDistance,
           rideId: activeRideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
         ),
       );
-
       _startTimer();
       _startHardwareStream();
     }
   }
 
-  // ===========================================================================
-  // 2. START RIDE LOGIC
-  // ===========================================================================
   Future<void> _onStartRide(
     StartRide event,
     Emitter<TaxiMeterState> emit,
@@ -192,36 +283,34 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         0,
         0.0,
         rideId: generatedRideId,
-        showSettings: state.showSettings,
-        activeSettingsTab: state.activeSettingsTab,
+        is80mmPrinter: state.is80mmPrinter,
       ),
     );
-
     _startTimer();
     _startHardwareStream();
   }
 
-  // ===========================================================================
-  // 3. TICK & HARDWARE PULSE UPDATES
-  // ===========================================================================
   void _onTick(Tick event, Emitter<TaxiMeterState> emit) {
     if (state is MeterRunning) {
-      final newElapsedSeconds = state.elapsedSeconds + 1;
-      double currentFare = state.fare;
+      final running = state as MeterRunning;
+      final newSecs = running.elapsedSeconds + 1;
+      double currentFare = running.fare;
+      final newWaitingSecs = running.isWaiting ? running.waitingSeconds + 1 : running.waitingSeconds;
 
-      // Logic: Every full 60 seconds (1 minute), add 2 pesos
-      if (newElapsedSeconds > 0 && newElapsedSeconds % 60 == 0) {
-        currentFare += ratePerMinute;
-      }
+      // Charge per-minute rate every 60 seconds (always, whether waiting or moving)
+      if (newSecs > 0 && newSecs % 60 == 0) currentFare += ratePerMinute;
 
       emit(
         MeterRunning(
           currentFare,
-          newElapsedSeconds,
-          state.distanceMeters,
-          rideId: state.rideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
+          newSecs,
+          running.distanceMeters,
+          rideId: running.rideId,
+          is80mmPrinter: running.is80mmPrinter,
+          showSettings: running.showSettings,
+          activeSettingsTab: running.activeSettingsTab,
+          waitingSeconds: newWaitingSecs,
+          isWaiting: running.isWaiting,
         ),
       );
     }
@@ -235,19 +324,13 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       final newDistance = event.newDistanceMeters;
       double currentFare = state.fare;
 
-      // Logic: Update fare when a full kilometer is reached
-      // Check if the "kilometer floor" has increased
       int previousKm = (state.distanceMeters / 1000).floor();
       int currentKm = (newDistance / 1000).floor();
 
       if (currentKm > previousKm) {
-        // Add the rate for every new kilometer reached
-        // This handles cases where the hardware might jump multiple KMs at once
-        int kmDiff = currentKm - previousKm;
-        currentFare += (kmDiff * ratePerKm);
+        currentFare += ((currentKm - previousKm) * ratePerKm);
       }
 
-      // Persist the distance
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('accumulated_distance', newDistance);
 
@@ -257,8 +340,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           state.elapsedSeconds,
           newDistance,
           rideId: state.rideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
         ),
       );
     }
@@ -268,15 +350,13 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     if (state is MeterRunning) {
       _timer?.cancel();
       _hardwareDistanceStream?.cancel();
-
       emit(
         MeterPaused(
           state.fare,
           state.elapsedSeconds,
           state.distanceMeters,
           rideId: state.rideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
         ),
       );
     }
@@ -290,14 +370,96 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
           state.elapsedSeconds,
           state.distanceMeters,
           rideId: state.rideId,
-          showSettings: state.showSettings,
-          activeSettingsTab: state.activeSettingsTab,
+          is80mmPrinter: state.is80mmPrinter,
         ),
       );
-
       _startTimer();
       _startHardwareStream();
     }
+  }
+
+  /// WAIT: keep timer ticking (per-minute charges), stop distance accumulation.
+  void _onStartWaiting(StartWaiting event, Emitter<TaxiMeterState> emit) {
+    if (state is MeterRunning) {
+      final running = state as MeterRunning;
+      if (running.isWaiting) return; // already waiting
+      _hardwareDistanceStream?.cancel(); // stop distance
+      emit(
+        MeterRunning(
+          running.fare,
+          running.elapsedSeconds,
+          running.distanceMeters,
+          rideId: running.rideId,
+          is80mmPrinter: running.is80mmPrinter,
+          showSettings: running.showSettings,
+          activeSettingsTab: running.activeSettingsTab,
+          waitingSeconds: running.waitingSeconds,
+          isWaiting: true,
+        ),
+      );
+    }
+  }
+
+  /// STOP WAIT: resume distance accumulation.
+  void _onStopWaiting(StopWaiting event, Emitter<TaxiMeterState> emit) {
+    if (state is MeterRunning) {
+      final running = state as MeterRunning;
+      if (!running.isWaiting) return;
+      _startHardwareStream(); // resume distance
+      emit(
+        MeterRunning(
+          running.fare,
+          running.elapsedSeconds,
+          running.distanceMeters,
+          rideId: running.rideId,
+          is80mmPrinter: running.is80mmPrinter,
+          showSettings: running.showSettings,
+          activeSettingsTab: running.activeSettingsTab,
+          waitingSeconds: running.waitingSeconds,
+          isWaiting: false,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onStopRide(StopRide event, Emitter<TaxiMeterState> emit) async {
+    _timer?.cancel();
+    _hardwareDistanceStream?.cancel();
+    await hardwareService.stopHardwareMeter();
+
+    double subtotal = state.fare;
+    double discountAmount = subtotal * event.discountRate;
+    double finalFare = subtotal - discountAmount;
+
+    if (state.rideId != null) {
+      await rideRepository.completeRide(
+        state.rideId!,
+        finalFare,
+        state.distanceMeters,
+      );
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final currentFare = prefs.getDouble('shift_total_fare') ?? 0.0;
+    final currentTrips = prefs.getInt('shift_total_trips') ?? 0;
+    await prefs.setDouble('shift_total_fare', currentFare + finalFare);
+    await prefs.setInt('shift_total_trips', currentTrips + 1);
+
+    await prefs.remove('active_ride_id');
+    await prefs.remove('ride_start_time');
+
+    emit(
+      MeterStopped(
+        subtotal,
+        event.discountRate,
+        discountAmount,
+        finalFare,
+        state.elapsedSeconds,
+        state.distanceMeters,
+        rideId: state.rideId,
+        is80mmPrinter: state.is80mmPrinter,
+      ),
+    );
   }
 
   Future<void> _onCancelRide(
@@ -306,7 +468,6 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   ) async {
     _timer?.cancel();
     _hardwareDistanceStream?.cancel();
-
     await hardwareService.stopHardwareMeter();
 
     if (state.rideId != null) {
@@ -318,48 +479,29 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     await prefs.remove('ride_start_time');
     await prefs.remove('accumulated_distance');
 
-    emit(
-      MeterStopped(
-        state.fare,
-        state.elapsedSeconds as double,
-        state.distanceMeters,
-        rideId: state.rideId,
-        showSettings: state.showSettings,
-        activeSettingsTab: state.activeSettingsTab,
-        state.subtotal,
-        state.discountAmount as int,
-        state.discountRate,
-      ),
-    );
+    emit(MeterStopped(0, 0, 0, 0, 0, 0, is80mmPrinter: state.is80mmPrinter));
   }
-
-  // ===========================================================================
-  // 4. STOP & RESET LOGIC
-  // ===========================================================================
 
   void _onResetMeter(ResetMeter event, Emitter<TaxiMeterState> emit) {
     _timer?.cancel();
     _hardwareDistanceStream?.cancel();
-    emit(const MeterInitial(showSettings: false, activeSettingsTab: 0));
+    emit(MeterInitial(is80mmPrinter: state.is80mmPrinter));
   }
 
   // ===========================================================================
-  // 5. HELPER METHODS
+  // HELPERS
   // ===========================================================================
+
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      add(Tick());
-    });
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) => add(Tick()));
   }
 
   void _startHardwareStream() {
     _hardwareDistanceStream?.cancel();
-    _hardwareDistanceStream = hardwareService.hardwareDistanceStream.listen((
-      double distance,
-    ) {
-      add(HardwareDistanceUpdated(distance));
-    });
+    _hardwareDistanceStream = hardwareService.hardwareDistanceStream.listen(
+      (d) => add(HardwareDistanceUpdated(d)),
+    );
   }
 
   @override
@@ -392,6 +534,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         // Make sure this field exists in your MeterStopped class
         discountAmount: s.discountAmount,
         finalFare: s.fare,
+        is80mm: s.is80mmPrinter, // Add printer setting flag
       );
 
       print("✅ Print command sent to HardwareService");
@@ -399,298 +542,5 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       print("❌ Printing failed: $e");
     }
   }
-
-  Future<void> _onPrintXReading(
-    PrintXReading event,
-    Emitter<TaxiMeterState> emit,
-  ) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Pull data saved during _onStopRide
-    final totalTrips = prefs.getInt('shift_total_trips') ?? 0;
-    final totalFare = prefs.getDouble('shift_total_fare') ?? 0.0;
-    final totalDistance = prefs.getDouble('shift_total_distance') ?? 0.0;
-
-    // Example payment breakdowns (you'll need to save these in _onStopRide too)
-    final cash = prefs.getDouble('shift_total_cash') ?? 0.0;
-    final gcash = prefs.getDouble('shift_total_gcash') ?? 0.0;
-
-    try {
-      await hardwareService.printXReading(
-        taxpayerName: "ROBERT A. MARTINEZ TRANSPORT",
-        plateNo: "ABC1234",
-        bodyNo: "TX-014",
-        driverName: "JUAN DELA CRUZ",
-        tripCount: totalTrips,
-        firstTripNo: "000451", // Pull from DB or Prefs
-        lastTripNo: "000468", // Pull from DB or Prefs
-        totalDistance: totalDistance,
-        totalWaiting: "01:22:10", // Calculate based on total elapsed seconds
-        totalFare: totalFare,
-        cashAmount: cash,
-        gcashAmount: gcash,
-        cardAmount: 0.0,
-      );
-    } catch (e) {
-      print("X-Reading Print Error: $e");
-    }
-  }
-
-  Future<void> _onPrintZReading(
-    PrintZReading event,
-    Emitter<TaxiMeterState> emit,
-  ) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // 1. Fetch Current Totals
-    final totalTrips = prefs.getInt('shift_total_trips') ?? 0;
-    final totalFare = prefs.getDouble('shift_total_fare') ?? 0.0;
-    final totalDistance = prefs.getDouble('shift_total_distance') ?? 0.0;
-
-    // 2. Manage Z-Counter (Increments every Z-Reading)
-    int currentZ = prefs.getInt('z_counter') ?? 0;
-    int newZ = currentZ + 1;
-    await prefs.setInt('z_counter', newZ);
-
-    try {
-      // 3. Print the report
-      await hardwareService.printZReading(
-        taxpayerName: "ROBERT A. MARTINEZ TRANSPORT",
-        plateNo: "ABC1234",
-        bodyNo: "TX-014",
-        driverName: "JUAN DELA CRUZ",
-        zCounter: newZ,
-        tripCount: totalTrips,
-        firstTripNo: totalTrips == 0
-            ? "N/A"
-            : (prefs.getString('first_trip_id') ?? "N/A"),
-        lastTripNo: totalTrips == 0
-            ? "N/A"
-            : (prefs.getString('last_trip_id') ?? "N/A"),
-        totalDistance: totalDistance,
-        totalWaiting: "00:00:00", // Calculate from stored seconds
-        totalFare: totalFare,
-        cashAmount: prefs.getDouble('shift_total_cash') ?? 0.0,
-        gcashAmount: prefs.getDouble('shift_total_gcash') ?? 0.0,
-        cardAmount: 0.0,
-      );
-
-      // 4. RESET TOTALS (Only after successful print)
-      await prefs.setDouble('shift_total_fare', 0.0);
-      await prefs.setInt('shift_total_trips', 0);
-      await prefs.setDouble('shift_total_distance', 0.0);
-      await prefs.setDouble('shift_total_cash', 0.0);
-      await prefs.setDouble('shift_total_gcash', 0.0);
-      await prefs.remove('first_trip_id');
-      await prefs.remove('last_trip_id');
-
-      // 5. Update State to notify UI that Z-Reading is done
-      if (state is MeterStopped) {
-        final s = state as MeterStopped;
-        emit(
-          MeterStopped(
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0,
-            0.0, // Values reset to zero for new shift
-            zReadingPerformed: true,
-            showSettings: s.showSettings,
-            activeSettingsTab: s.activeSettingsTab,
-          ),
-        );
-      }
-    } catch (e) {
-      print("Z-Reading Error: $e");
-    }
-  }
-
-  // ===========================================================================
-  // SUNMI HARDWARE: SHIFT REPORT FORMATTER
-  // ===========================================================================
-  Future<void> _printShiftReport({
-    required String title,
-    required int totalTrips,
-    required double totalFare,
-    required double totalDistance,
-    required String shiftStart,
-  }) async {
-    final now = DateTime.now();
-    final printDate =
-        "${now.month}/${now.day}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}";
-
-    // Header
-    await SunmiPrinter.printText(
-      'METRO TRANSIT CORP.',
-      style: SunmiTextStyle(
-        bold: true,
-        align: SunmiPrintAlign.CENTER,
-        fontSize: 28,
-      ),
-    );
-
-    await SunmiPrinter.printText(
-      'SHIFT REPORT',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, fontSize: 28),
-    );
-
-    await SunmiPrinter.line();
-
-    // TITLE (X-READING or Z-READING)
-    await SunmiPrinter.printText(
-      title,
-      style: SunmiTextStyle(
-        bold: true,
-        align: SunmiPrintAlign.CENTER,
-        fontSize: 28,
-      ),
-    );
-
-    await SunmiPrinter.line();
-
-    // Info
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'PRINTED:',
-          width: 12,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: printDate,
-          width: 18,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'SHIFT START:',
-          width: 12,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        // Just showing a mock time here, format your actual shiftStart string as needed
-        SunmiColumn(
-          text: '08:00 AM',
-          width: 18,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.line();
-
-    // METRICS
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'TOTAL TRIPS:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: '$totalTrips',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'TOTAL DIST:',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT),
-        ),
-        SunmiColumn(
-          text: '${(totalDistance / 1000).toStringAsFixed(2)} KM',
-          width: 15,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.lineWrap(1);
-
-    // TOTAL GROSS
-    await SunmiPrinter.printRow(
-      cols: [
-        SunmiColumn(
-          text: 'GROSS FARE:',
-          width: 12,
-          style: SunmiTextStyle(align: SunmiPrintAlign.LEFT, bold: true),
-        ),
-        SunmiColumn(
-          text: 'P ${totalFare.toStringAsFixed(2)}',
-          width: 18,
-          style: SunmiTextStyle(align: SunmiPrintAlign.RIGHT, bold: true),
-        ),
-      ],
-    );
-
-    await SunmiPrinter.line();
-    await SunmiPrinter.printText(
-      '*** END OF REPORT ***',
-      style: SunmiTextStyle(align: SunmiPrintAlign.CENTER),
-    );
-
-    // Push paper out to tear blade
-    await SunmiPrinter.lineWrap(4);
-  }
-
-  Future<void> _onStopRide(StopRide event, Emitter<TaxiMeterState> emit) async {
-    // 1. Stop hardware and timers
-    _timer?.cancel();
-    _hardwareDistanceStream?.cancel();
-    await hardwareService.stopHardwareMeter();
-
-    // 2. Calculate Math using local variables
-    double subtotal = state.fare;
-    double discountAmount = subtotal * event.discountRate;
-    double finalFare = subtotal - discountAmount;
-
-    // 3. Save to Database
-    if (state.rideId != null) {
-      try {
-        await rideRepository.completeRide(
-          state.rideId!,
-          finalFare,
-          state.distanceMeters,
-        );
-      } catch (e) {
-        print("Save Error: $e");
-      }
-    }
-
-    // 4. Update Shift Totals in SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final currentFare = prefs.getDouble('shift_total_fare') ?? 0.0;
-    final currentTrips = prefs.getInt('shift_total_trips') ?? 0;
-
-    await prefs.setDouble('shift_total_fare', currentFare + finalFare);
-    await prefs.setInt('shift_total_trips', currentTrips + 1);
-
-    // 5. Clear active ride cache
-    await prefs.remove('active_ride_id');
-    await prefs.remove('ride_start_time');
-
-    // 6. EMIT THE STATE
-    // IMPORTANT: The order here MUST match the MeterStopped constructor exactly!
-    emit(
-      MeterStopped(
-        subtotal, // 1: subtotal
-        event.discountRate, // 2: discountRate
-        discountAmount, // 3: discountAmount
-        finalFare, // 4: fare
-        state.elapsedSeconds, // 5: elapsedSeconds (int)
-        state.distanceMeters, // 6: distanceMeters
-        rideId: state.rideId, // Named argument
-        showSettings: state.showSettings,
-        activeSettingsTab: state.activeSettingsTab,
-      ),
-    );
-  }
 }
+

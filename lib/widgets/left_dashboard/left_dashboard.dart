@@ -6,7 +6,6 @@ Widget buildLeftDashboard(TaxiMeterState state) {
   final double currentDistance = state.distanceMeters;
 
   const Color accentOrange = Color(0xFFFF7121);
-  const Color accentGreen = Color(0xFF1CB955);
   const Color accentRed = Color(0xFFE54D4D);
   const Color textFaint = Color(0xFF8B95A5);
   const Color borderColor = Color(0xFF38404E);
@@ -117,7 +116,7 @@ Widget buildLeftDashboard(TaxiMeterState state) {
                           : 'STATUS: IDLE',
                       style: TextStyle(
                         color: state is MeterRunning
-                            ? accentGreen
+                            ? accentOrange
                             : (state is MeterPaused ? accentOrange : textFaint),
                         fontWeight: FontWeight.bold,
                         fontSize: 14,

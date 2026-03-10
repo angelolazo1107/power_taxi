@@ -1,1 +1,39 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"powertaxi-metro","appId":"1:333224010311:android:01416aa1f47bda70218762","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"powertaxi-metro","configurations":{"android":"1:333224010311:android:01416aa1f47bda70218762","ios":"1:333224010311:ios:4c44ad42cdbedca9218762","macos":"1:333224010311:ios:4c44ad42cdbedca9218762","web":"1:333224010311:web:11ee345e6b5f7f0b218762","windows":"1:333224010311:web:e92de323f7a47c32218762"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "powertaxi-metro",
+          "appId": "1:333224010311:android:01416aa1f47bda70218762",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "powertaxi-metro",
+          "configurations": {
+            "android": "1:333224010311:android:01416aa1f47bda70218762",
+            "ios": "1:333224010311:ios:4c44ad42cdbedca9218762",
+            "macos": "1:333224010311:ios:4c44ad42cdbedca9218762",
+            "web": "1:333224010311:web:11ee345e6b5f7f0b218762",
+            "windows": "1:333224010311:web:e92de323f7a47c32218762"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

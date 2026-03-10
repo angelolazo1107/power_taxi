@@ -19,7 +19,6 @@ class StartRide extends TaxiMeterEvent {
 
 class Tick extends TaxiMeterEvent {}
 
-// NEW: Replaces LocationUpdated
 class HardwareDistanceUpdated extends TaxiMeterEvent {
   final double newDistanceMeters;
   const HardwareDistanceUpdated(this.newDistanceMeters);
@@ -29,8 +28,8 @@ class HardwareDistanceUpdated extends TaxiMeterEvent {
 }
 
 class StopRide extends TaxiMeterEvent {
-  final String discountType; // e.g., 'Senior Citizen'
-  final double discountRate; // e.g., 0.20
+  final String discountType;
+  final double discountRate;
 
   const StopRide({this.discountType = 'REGULAR', this.discountRate = 0.0});
 
@@ -40,10 +39,15 @@ class StopRide extends TaxiMeterEvent {
 
 class ResetMeter extends TaxiMeterEvent {}
 
-// ... existing events ...
 class PauseRide extends TaxiMeterEvent {}
 
 class ResumeRide extends TaxiMeterEvent {}
+
+/// WAIT mode: meter keeps ticking (charging per-minute), distance stops.
+class StartWaiting extends TaxiMeterEvent {}
+
+/// Resume normal meter counting after waiting.
+class StopWaiting extends TaxiMeterEvent {}
 
 class CancelRide extends TaxiMeterEvent {}
 
@@ -64,8 +68,8 @@ class ChangeSettingsTab extends TaxiMeterEvent {
 }
 
 class PrintReceipt extends TaxiMeterEvent {
-  final String discountType; // 'Regular', 'Senior', 'PWD', 'Student'
-  final double discountRate; // 0.0 for Regular, 0.20 for others
+  final String discountType;
+  final double discountRate;
 
   const PrintReceipt({this.discountType = 'Regular', this.discountRate = 0.0});
 
@@ -76,3 +80,16 @@ class PrintReceipt extends TaxiMeterEvent {
 class PrintXReading extends TaxiMeterEvent {}
 
 class PrintZReading extends TaxiMeterEvent {}
+
+class InitializeSettings extends TaxiMeterEvent {
+  final bool is80mmPrinter;
+  InitializeSettings({this.is80mmPrinter = false});
+}
+
+class TogglePrinterSize extends TaxiMeterEvent {
+  final bool is80mm;
+  const TogglePrinterSize(this.is80mm);
+
+  @override
+  List<Object> get props => [is80mm];
+}
