@@ -17,6 +17,7 @@ import 'package:powertaxi/core/hardware_meter_service.dart';
 import 'package:powertaxi/repository/firebase_ride_repository.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/screen/taxi_meter_screen.dart';
+import 'package:powertaxi/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,7 @@ void main() async {
   // 3. Check persistent login state
   final prefs = await SharedPreferences.getInstance();
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-  final String userRole = prefs.getString('role') ?? 'device';
+  final String userRole = prefs.getString('userRole') ?? 'device';
 
   // 4. Initialize Repository & Sync Logic
   final rideRepository = FirebaseRideRepository();
@@ -72,6 +73,9 @@ class EzBusTaxiApp extends StatelessWidget {
         RepositoryProvider<HardwareMeterService>(
           create: (context) => HardwareMeterService(),
         ),
+        RepositoryProvider<AuthService>(
+          create: (context) => AuthService(),
+        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -96,6 +100,7 @@ class EzBusTaxiApp extends StatelessWidget {
                 create: (context) => TaxiMeterBloc(
                   rideRepository: context.read<RideRepository>(),
                   hardwareService: context.read<HardwareMeterService>(),
+                  authService: context.read<AuthService>(),
                 )..add(CheckActiveRide()),
 
                 child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
@@ -111,4 +116,3 @@ class EzBusTaxiApp extends StatelessWidget {
     );
   }
 }
-

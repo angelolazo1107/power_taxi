@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../models/company_model.dart';
 import '../../../services/admin_service.dart';
 
+// ─── Theme Constants ──────────────────────────────────────────────────────────
+const Color _bg     = Color(0xFF0A0C0F);
+const Color _panel  = Color(0xFF111418);
+const Color _orange = Color(0xFFFF7121);
+const Color _border = Color(0xFF1E2430);
+const Color _faint  = Color(0xFF6B7280);
+
 class CompanyManagementTab extends StatefulWidget {
   final AdminService adminService;
   const CompanyManagementTab({super.key, required this.adminService});
@@ -11,264 +18,332 @@ class CompanyManagementTab extends StatefulWidget {
 }
 
 class _CompanyManagementTabState extends State<CompanyManagementTab> {
-  final TextEditingController _companyNameController = TextEditingController();
-  final TextEditingController _tinController = TextEditingController();
-  String? _editingCompanyId;
 
-  void _loadCompanyForEditing(Company company) {
-    setState(() {
-      _editingCompanyId = company.id;
-      _companyNameController.text = company.name;
-      _tinController.text = company.tin;
-    });
-  }
+  // ─── Dialogs ───────────────────────────────────────────────────────────────
+  void _showCompanyDialog({Company? existing}) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final tinCtrl  = TextEditingController(text: existing?.tin ?? '');
 
-  void _resetForm() {
-    setState(() {
-      _editingCompanyId = null;
-      _companyNameController.clear();
-      _tinController.clear();
-    });
-  }
-
-  Future<void> _saveCompany() async {
-    try {
-      if (_editingCompanyId != null) {
-        await widget.adminService.updateCompany(Company(
-          id: _editingCompanyId,
-          name: _companyNameController.text,
-          tin: _tinController.text,
-        ));
-      } else {
-        await widget.adminService.addCompany(
-          _companyNameController.text,
-          _tinController.text,
-        );
-      }
-      
-      _resetForm();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_editingCompanyId != null ? 'Company updated successfully!' : 'Company added successfully!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32.0),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(existing == null ? Icons.add_business : Icons.edit_outlined, color: _orange, size: 22),
+            const SizedBox(width: 10),
+            Text(
+              existing == null ? 'Add Company' : 'Edit Company',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Left side - Form
-              Expanded(
-                flex: 4,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_editingCompanyId != null ? 'Edit Company' : 'Add Company', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.orange)),
-                      const SizedBox(height: 20),
-                      Card(
-                        color: const Color(0xFF1E1E1E),
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            children: [
-                              TextField(
-                                controller: _companyNameController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Company Name',
-                                  labelStyle: const TextStyle(color: Colors.white70),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  filled: true,
-                                  fillColor: Colors.white10,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextField(
-                                controller: _tinController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Company TIN',
-                                  labelStyle: const TextStyle(color: Colors.white70),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  filled: true,
-                                  fillColor: Colors.white10,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  if (_editingCompanyId != null) ...[
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 50,
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(color: Colors.orange),
-                                            foregroundColor: Colors.orange,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          ),
-                                          onPressed: _resetForm,
-                                          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                  ],
-                                  Expanded(
-                                    flex: 2,
-                                    child: SizedBox(
-                                      height: 50,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          foregroundColor: Colors.black,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        ),
-                                        onPressed: _saveCompany,
-                                        child: Text(_editingCompanyId != null ? 'Update Company' : 'Save Company', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 40),
-              // Right side - List
-              Expanded(
-                flex: 5,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Companies List', style: TextStyle(fontSize: 22, color: Colors.orange, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: StreamBuilder<List<Company>>(
-                        stream: widget.adminService.getCompaniesStream(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                          final companies = snapshot.data!;
-                          return ListView.builder(
-                            itemCount: companies.length,
-                            itemBuilder: (context, index) {
-                              final company = companies[index];
-                              return Card(
-                                color: const Color(0xFF1E1E1E),
-                                margin: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                child: ListTile(
-                                  onTap: () => _loadCompanyForEditing(company),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                  title: Text(company.name, style: const TextStyle(color: Colors.white, fontSize: 18)),
-                                  subtitle: Text("TIN: ${company.tin}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                  leading: Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle),
-                                    child: const Icon(Icons.business, color: Colors.orange),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                    onPressed: () => _confirmDelete(context, company),
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    )
-                  ],
-                ),
-              ),
+              _buildDialogField(nameCtrl, 'Company Name', Icons.business_outlined),
+              const SizedBox(height: 16),
+              _buildDialogField(tinCtrl, 'TIN Number', Icons.tag_outlined),
             ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _faint)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _orange,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                if (existing == null) {
+                  await widget.adminService.addCompany(nameCtrl.text, tinCtrl.text);
+                } else {
+                  await widget.adminService.updateCompany(Company(
+                    id: existing.id,
+                    name: nameCtrl.text,
+                    tin: tinCtrl.text,
+                  ));
+                }
+                if (mounted) {
+                  _showSnack(existing == null ? 'Company added!' : 'Company updated!');
+                }
+              } catch (e) {
+                if (mounted) _showSnack('Error: $e', isError: true);
+              }
+            },
+            child: Text(existing == null ? 'Add Company' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
 
-  void _confirmDelete(BuildContext context, Company company) {
+  void _confirmDelete(Company company) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _panel,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-            const SizedBox(width: 12),
-            const Text('Confirm Deletion', style: TextStyle(color: Colors.white, fontSize: 20)),
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            SizedBox(width: 10),
+            Text('Delete Company', style: TextStyle(color: Colors.white, fontSize: 18)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('This action is irreversible.', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 8),
-            Text('Are you sure you want to delete "${company.name}"? This will remove all associated data.', 
-              style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          ],
+        content: Text(
+          'Are you sure you want to delete "${company.name}"? This is irreversible.',
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL', style: TextStyle(color: Color(0xFF6B7280), fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _faint)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
               foregroundColor: Colors.redAccent,
               elevation: 0,
-              side: const BorderSide(color: Colors.redAccent, width: 1),
+              side: const BorderSide(color: Colors.redAccent),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
-              if (company.id == null) return;
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               try {
                 await widget.adminService.deleteCompany(company.id!);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Company deleted successfully')),
-                  );
-                }
+                if (mounted) _showSnack('Company deleted.');
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                  );
-                }
+                if (mounted) _showSnack('Error: $e', isError: true);
               }
             },
-            child: const Text('DELETE', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+
+  // ─── Build ─────────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(28.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Companies', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text('Manage transport companies registered in the system.', style: TextStyle(color: _faint, fontSize: 12)),
+                ],
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () => _showCompanyDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Company', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _orange,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Summary Row
+          StreamBuilder<List<Company>>(
+            stream: widget.adminService.getCompaniesStream(),
+            builder: (context, snap) {
+              final count = snap.hasData ? snap.data!.length : 0;
+              return _buildStatCard('Total Companies', count.toString(), Icons.business_outlined);
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // List Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: _panel,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              border: Border.all(color: _border),
+            ),
+            child: const Row(
+              children: [
+                Expanded(flex: 4, child: Text('Company Name', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8))),
+                Expanded(flex: 3, child: Text('TIN', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8))),
+                SizedBox(width: 80, child: Text('Actions', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8), textAlign: TextAlign.center)),
+              ],
+            ),
+          ),
+
+          // List Body
+          Expanded(
+            child: StreamBuilder<List<Company>>(
+              stream: widget.adminService.getCompaniesStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: _orange));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildEmptyState('No companies found.', 'Tap "Add Company" to create one.');
+                }
+                final companies = snapshot.data!;
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _border),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                    child: ListView.separated(
+                      itemCount: companies.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+                      itemBuilder: (context, index) {
+                        final company = companies[index];
+                        return _buildCompanyRow(company);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyRow(Company company) {
+    return Container(
+      color: _bg,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.business, color: _orange, size: 16),
+                ),
+                const SizedBox(width: 12),
+                Text(company.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(company.tin.isEmpty ? '—' : company.tin, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ),
+          SizedBox(
+            width: 80,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: _faint, size: 18),
+                  tooltip: 'Edit',
+                  onPressed: () => _showCompanyDialog(existing: company),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                  tooltip: 'Delete',
+                  onPressed: () => _confirmDelete(company),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _orange, size: 20),
+          const SizedBox(width: 12),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: _faint, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String subtitle) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _bg,
+        border: Border.all(color: _border),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.business_outlined, color: _faint.withValues(alpha: 0.4), size: 52),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(color: _faint, fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(color: _faint.withValues(alpha: 0.6), fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  TextField _buildDialogField(TextEditingController ctrl, String label, IconData icon) {
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: _faint),
+        prefixIcon: Icon(icon, color: _orange, size: 18),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+      ),
+    );
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? Colors.redAccent : Colors.green.shade700,
+    ));
   }
 }

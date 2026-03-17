@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:powertaxi/core/hardware_meter_service.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
+import 'package:powertaxi/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'taxi_meter_event.dart';
@@ -13,9 +15,12 @@ import 'package:powertaxi/core/database_helper.dart';
 class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   final RideRepository rideRepository;
   final HardwareMeterService hardwareService;
+  final AuthService authService;
 
   Timer? _timer;
   StreamSubscription<double>? _hardwareDistanceStream;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _wasOnline = true; // track previous connectivity state
 
   // Pricing configuration
   final double baseFare = 50.0;
@@ -25,6 +30,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   TaxiMeterBloc({
     required this.rideRepository,
     required this.hardwareService,
+    required this.authService,
   }) : super(
          const MeterInitial(
            showSettings: false,
@@ -63,6 +69,36 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
 
     // Driver/Device Info Update
     on<UpdateDriverInfo>(_onUpdateDriverInfo);
+
+    // Start heartbeat timer immediately
+    _startTimer();
+
+    // ── Connectivity Listener ──────────────────────────────
+    // Actively push 'offline' / 'idle' to Firestore when internet changes.
+    _connectivitySub =
+        Connectivity().onConnectivityChanged.listen((results) async {
+      final isOnline = !results.contains(ConnectivityResult.none);
+      final serialNo = state.serialNo;
+      if (serialNo == null || serialNo.isEmpty) return;
+
+      if (isOnline && !_wasOnline) {
+        // Just came back online — push current status immediately
+        debugPrint('BLOC: Connectivity RESTORED. Pushing status to Firestore.');
+        final status = state is MeterRunning ? 'running' : 'idle';
+        await authService.updateDeviceStatus(
+          serialNo,
+          status: status,
+          driverName: state.driverName,
+        );
+      } else if (!isOnline && _wasOnline) {
+        // Just went offline — Firestore will be updated as soon as connection
+        // returns; meanwhile mark locally and try to write (will queue).
+        debugPrint('BLOC: Connectivity LOST. Attempting to push offline status.');
+        // Firestore SDK will retry this write once connection is restored.
+        authService.updateDeviceStatus(serialNo, status: 'offline');
+      }
+      _wasOnline = isOnline;
+    });
   }
 
   void _onUpdateDriverInfo(UpdateDriverInfo event, Emitter<TaxiMeterState> emit) {
@@ -180,6 +216,20 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         tin: tin,
         minNo: minNo,
       ));
+    }
+
+    // Trigger immediate status update to Firestore to reflect online state instantly
+    if (serialNo != null && serialNo.isNotEmpty) {
+      authService.updateDeviceStatus(
+        serialNo,
+        status: state is MeterRunning ? 'running' : 'idle',
+        driverName: driverName,
+      );
+    }
+    
+    // If the timer isn't running, start it
+    if (_timer == null || !_timer!.isActive) {
+      _startTimer();
     }
   }
 
@@ -491,6 +541,12 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     ));
     _startTimer();
     _startHardwareStream();
+    
+    // Update real-time status
+    final serial = state.serialNo;
+    if (serial != null && serial.isNotEmpty) {
+      await authService.updateDeviceStatus(serial, status: 'running');
+    }
   }
 
   void _onTick(Tick event, Emitter<TaxiMeterState> emit) {
@@ -521,6 +577,28 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         tin: running.tin,
         minNo: running.minNo,
       ));
+
+      // Heartbeat every 30 seconds
+      if (newSecs % 30 == 0 && running.serialNo != null && running.serialNo!.isNotEmpty) {
+        authService.updateDeviceStatus(
+          running.serialNo!,
+          status: 'running',
+          driverName: running.driverName,
+        );
+      }
+    } else {
+      // Periodic heartbeat when idle (if initialized)
+      if (state.serialNo != null && state.serialNo!.isNotEmpty) {
+        // We update status every 30 seconds
+        final now = DateTime.now();
+        if (now.second % 30 == 0) {
+          authService.updateDeviceStatus(
+            state.serialNo!,
+            status: state is MeterRunning ? 'running' : 'idle',
+            driverName: state.driverName,
+          );
+        }
+      }
     }
   }
 
@@ -695,6 +773,22 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       tin: state.tin,
       minNo: state.minNo,
     ));
+    
+    if (state.serialNo != null && state.serialNo!.isNotEmpty) {
+      await authService.updateDailySales(state.serialNo!, finalFare);
+      await authService.updateDailyTripStats(
+        state.serialNo!,
+        tripSeconds: state.elapsedSeconds,
+        waitingSeconds: state.waitingSeconds,
+        distanceMeters: state.distanceMeters,
+      );
+      await authService.updateDeviceStatus(
+        state.serialNo!,
+        status: 'idle',
+        driverName: state.driverName,
+      );
+    }
+    
     add(LogActivity(action: 'END TRIP #${state.rideId ?? "N/A"}', user: state.driverId ?? 'UNKNOWN'));
   }
 
@@ -726,6 +820,13 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       tin: state.tin,
       minNo: state.minNo,
     ));
+    if (state.serialNo != null && state.serialNo!.isNotEmpty) {
+      await authService.updateDeviceStatus(
+        state.serialNo!,
+        status: 'idle',
+        driverName: state.driverName,
+      );
+    }
   }
 
   void _onResetMeter(ResetMeter event, Emitter<TaxiMeterState> emit) {
@@ -754,13 +855,6 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   void _startHardwareStream() {
     _hardwareDistanceStream?.cancel();
     _hardwareDistanceStream = hardwareService.hardwareDistanceStream.listen((d) => add(HardwareDistanceUpdated(d)));
-  }
-
-  @override
-  Future<void> close() {
-    _timer?.cancel();
-    _hardwareDistanceStream?.cancel();
-    return super.close();
   }
 
   Future<void> _onPrintReceipt(PrintReceipt event, Emitter<TaxiMeterState> emit) async {
@@ -1184,5 +1278,13 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     } catch (e) {
       debugPrint("Failed to print activity log: $e");
     }
+  }
+
+  @override
+  Future<void> close() {
+    _timer?.cancel();
+    _connectivitySub?.cancel();
+    _hardwareDistanceStream?.cancel();
+    return super.close();
   }
 }

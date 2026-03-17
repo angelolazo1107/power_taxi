@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../models/app_user_model.dart';
 import '../../../models/company_model.dart';
-import '../../../models/device_model.dart';
 import '../../../services/admin_service.dart';
 
 // ─── Theme Constants ──────────────────────────────────────────────────────────
@@ -10,34 +10,28 @@ const Color _orange = Color(0xFFFF7121);
 const Color _border = Color(0xFF1E2430);
 const Color _faint  = Color(0xFF6B7280);
 
-class DeviceManagementTab extends StatefulWidget {
+class UserManagementTab extends StatefulWidget {
   final AdminService adminService;
-  final String? filterCompanyName;
+  final String? companyId;
 
-  const DeviceManagementTab({
-    super.key,
-    required this.adminService,
-    this.filterCompanyName,
-  });
+  const UserManagementTab({super.key, required this.adminService, this.companyId});
 
   @override
-  State<DeviceManagementTab> createState() => _DeviceManagementTabState();
+  State<UserManagementTab> createState() => _UserManagementTabState();
 }
 
-class _DeviceManagementTabState extends State<DeviceManagementTab> {
+class _UserManagementTabState extends State<UserManagementTab> {
   String _searchQuery = '';
 
   // ─── Dialogs ───────────────────────────────────────────────────────────────
-  void _showDeviceDialog({Device? existing}) {
-    final serialCtrl        = TextEditingController(text: existing?.serialNo ?? '');
-    final ptuCtrl           = TextEditingController(text: existing?.ptuNo ?? '');
-    final accreditationCtrl = TextEditingController(text: existing?.accreditationNo ?? '');
-    final minCtrl           = TextEditingController(text: existing?.minNo ?? '');
-    final plateCtrl         = TextEditingController(text: existing?.plateNo ?? '');
-    final bodyCtrl          = TextEditingController(text: existing?.bodyNo ?? '');
-    final tinCtrl           = TextEditingController(text: existing?.tin ?? '');
-    String? selectedCompanyId   = existing?.companyId;
-    String? selectedCompanyName = existing?.company;
+  void _showUserDialog({AppUser? existing}) {
+    final nameCtrl  = TextEditingController(text: existing?.name ?? '');
+    final emailCtrl = TextEditingController(text: existing?.email ?? '');
+    final pinCtrl   = TextEditingController(text: existing?.pin ?? '');
+    String selectedRole = existing?.role ?? 'driver';
+    String? selectedCompanyId = existing?.accessibleCompanies.isNotEmpty == true
+        ? existing!.accessibleCompanies.first
+        : widget.companyId;
 
     showDialog(
       context: context,
@@ -47,21 +41,50 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(existing == null ? Icons.add_to_queue : Icons.edit_outlined, color: _orange, size: 22),
+              Icon(existing == null ? Icons.person_add_outlined : Icons.edit_outlined, color: _orange, size: 22),
               const SizedBox(width: 10),
               Text(
-                existing == null ? 'Add Device' : 'Edit Device',
+                existing == null ? 'Add User' : 'Edit User',
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           content: SizedBox(
-            width: 480,
+            width: 440,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Company dropdown
+                  _buildDialogField(nameCtrl, 'Full Name', Icons.person_outline),
+                  const SizedBox(height: 14),
+                  _buildDialogField(emailCtrl, 'Email Address', Icons.email_outlined),
+                  const SizedBox(height: 14),
+
+                  // Role selector
+                  const Text('Role', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    dropdownColor: const Color(0xFF1A1E26),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.admin_panel_settings_outlined, color: _orange, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                    ),
+                    items: ['admin', 'manager', 'driver', 'user'].map((r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(r[0].toUpperCase() + r.substring(1), style: const TextStyle(color: Colors.white)),
+                    )).toList(),
+                    onChanged: (val) => setDialogState(() => selectedRole = val!),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Company access
+                  const Text('Company Access', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
                   StreamBuilder<List<Company>>(
                     stream: widget.adminService.getCompaniesStream(),
                     builder: (context, snap) {
@@ -70,37 +93,44 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                         value: selectedCompanyId,
                         dropdownColor: const Color(0xFF1A1E26),
                         style: const TextStyle(color: Colors.white),
-                        decoration: _fieldDecoration('Company', Icons.business_outlined),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.business_outlined, color: _orange, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.05),
+                        ),
                         hint: const Text('Select Company', style: TextStyle(color: _faint)),
                         items: companies.map((c) => DropdownMenuItem(
                           value: c.id,
                           child: Text(c.name, style: const TextStyle(color: Colors.white)),
                         )).toList(),
-                        onChanged: (val) {
-                          setDialogState(() {
-                            selectedCompanyId = val;
-                            selectedCompanyName = companies.firstWhere((c) => c.id == val, orElse: () => Company(id: val, name: '', tin: '')).name;
-                          });
-                        },
+                        onChanged: (val) => setDialogState(() => selectedCompanyId = val),
                       );
                     },
                   ),
-                  const SizedBox(height: 14),
-                  _buildDialogField(serialCtrl, 'Serial No. *', Icons.qr_code_outlined, enabled: existing == null),
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    Expanded(child: _buildDialogField(plateCtrl, 'Plate No.', Icons.directions_car_outlined)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildDialogField(bodyCtrl, 'Body No.', Icons.tag_outlined)),
-                  ]),
-                  const SizedBox(height: 14),
-                  _buildDialogField(ptuCtrl, 'PTU No.', Icons.verified_outlined),
-                  const SizedBox(height: 14),
-                  _buildDialogField(accreditationCtrl, 'Accreditation No.', Icons.badge_outlined),
-                  const SizedBox(height: 14),
-                  _buildDialogField(minCtrl, 'MIN No.', Icons.pin_outlined),
-                  const SizedBox(height: 14),
-                  _buildDialogField(tinCtrl, 'Device TIN (BIR)', Icons.receipt_outlined),
+
+                  // PIN field for drivers
+                  if (selectedRole == 'driver') ...[ 
+                    const SizedBox(height: 14),
+                    const Text('4-Digit PIN', style: TextStyle(color: _faint, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: pinCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white, letterSpacing: 8),
+                      decoration: InputDecoration(
+                        hintText: '••••',
+                        hintStyle: const TextStyle(color: _faint),
+                        prefixIcon: const Icon(Icons.lock_outline, color: _orange, size: 18),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        counterStyle: const TextStyle(color: _faint),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -117,37 +147,36 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () async {
-                final serial = serialCtrl.text.trim().toUpperCase();
-                if (serial.isEmpty || selectedCompanyName == null) {
+                if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Serial No. and Company are required.')),
+                    const SnackBar(content: Text('Name and Email are required.')),
                   );
                   return;
                 }
                 Navigator.pop(ctx);
                 try {
-                  final device = Device(
-                    serialNo: serial,
-                    company: selectedCompanyName!,
-                    companyId: selectedCompanyId,
-                    ptuNo: ptuCtrl.text,
-                    accreditationNo: accreditationCtrl.text,
-                    minNo: minCtrl.text,
-                    tin: tinCtrl.text,
-                    plateNo: plateCtrl.text,
-                    bodyNo: bodyCtrl.text,
+                  final user = AppUser(
+                    id: existing?.id,
+                    email: emailCtrl.text.trim(),
+                    password: existing?.password ?? 'password123',
+                    role: selectedRole,
+                    name: nameCtrl.text.trim(),
+                    language: 'English',
+                    pin: selectedRole == 'driver' ? pinCtrl.text.trim() : null,
+                    accessibleCompanies: selectedCompanyId != null ? [selectedCompanyId!] : [],
+                    createdAt: existing?.createdAt ?? DateTime.now(),
                   );
                   if (existing == null) {
-                    await widget.adminService.addDevice(device);
+                    await widget.adminService.addUser(user);
                   } else {
-                    await widget.adminService.updateDevice(device);
+                    await widget.adminService.updateUser(user);
                   }
-                  if (mounted) _showSnack(existing == null ? 'Device added!' : 'Device updated!');
+                  if (mounted) _showSnack(existing == null ? 'User added!' : 'User updated!');
                 } catch (e) {
                   if (mounted) _showSnack('Error: $e', isError: true);
                 }
               },
-              child: Text(existing == null ? 'Add Device' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(existing == null ? 'Add User' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -155,7 +184,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
     );
   }
 
-  void _confirmDelete(Device device) {
+  void _confirmDelete(AppUser user) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -165,11 +194,11 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
             SizedBox(width: 10),
-            Text('Remove Device', style: TextStyle(color: Colors.white, fontSize: 18)),
+            Text('Delete User', style: TextStyle(color: Colors.white, fontSize: 18)),
           ],
         ),
         content: Text(
-          'Remove device "${device.serialNo}" from the system? This will revoke access.',
+          'Are you sure you want to delete "${user.name ?? user.email}"? This is permanent.',
           style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
         actions: [
@@ -188,13 +217,13 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await widget.adminService.deleteDevice(device.serialNo);
-                if (mounted) _showSnack('Device removed.');
+                await widget.adminService.deleteUser(user.id!);
+                if (mounted) _showSnack('User deleted.');
               } catch (e) {
                 if (mounted) _showSnack('Error: $e', isError: true);
               }
             },
-            child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -209,26 +238,21 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
+          // Header
           Row(
             children: [
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Devices', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  Text(
-                    widget.filterCompanyName != null
-                        ? 'Showing devices for: ${widget.filterCompanyName}'
-                        : 'All registered taxi meter devices.',
-                    style: const TextStyle(color: _faint, fontSize: 12),
-                  ),
+                  Text('Users', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text('Manage drivers and administrators.', style: TextStyle(color: _faint, fontSize: 12)),
                 ],
               ),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: () => _showDeviceDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Device', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () => _showUserDialog(),
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: const Text('Add User', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _orange,
                   foregroundColor: Colors.black,
@@ -240,14 +264,14 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
           ),
           const SizedBox(height: 20),
 
-          // Summary + Search Row
+          // Stat + Search
           Row(
             children: [
-              StreamBuilder<List<Device>>(
-                stream: widget.adminService.getDevicesStream(companyName: widget.filterCompanyName),
+              StreamBuilder<List<AppUser>>(
+                stream: widget.adminService.getUsersStream(companyId: widget.companyId),
                 builder: (context, snap) {
                   final count = snap.hasData ? snap.data!.length : 0;
-                  return _buildStatCard('Total Devices', count.toString(), Icons.tablet_mac_outlined);
+                  return _buildStatCard('Total Users', count.toString(), Icons.people_outline);
                 },
               ),
               const SizedBox(width: 16),
@@ -256,7 +280,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                   onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: 'Search by serial or plate...',
+                    hintText: 'Search by name or email...',
                     hintStyle: const TextStyle(color: _faint, fontSize: 13),
                     prefixIcon: const Icon(Icons.search, color: _faint, size: 18),
                     filled: true,
@@ -287,10 +311,9 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
             ),
             child: const Row(
               children: [
-                Expanded(flex: 3, child: _ColumnHeader('SERIAL NO.')),
-                Expanded(flex: 2, child: _ColumnHeader('PLATE / BODY')),
-                Expanded(flex: 3, child: _ColumnHeader('COMPANY')),
-                Expanded(flex: 2, child: _ColumnHeader('PTU / ACCREDITATION')),
+                Expanded(flex: 4, child: _ColumnHeader('NAME')),
+                Expanded(flex: 4, child: _ColumnHeader('EMAIL')),
+                Expanded(flex: 2, child: _ColumnHeader('ROLE')),
                 SizedBox(width: 80, child: _ColumnHeader('ACTIONS', centered: true)),
               ],
             ),
@@ -298,24 +321,24 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
 
           // Table Body
           Expanded(
-            child: StreamBuilder<List<Device>>(
-              stream: widget.adminService.getDevicesStream(companyName: widget.filterCompanyName),
+            child: StreamBuilder<List<AppUser>>(
+              stream: widget.adminService.getUsersStream(companyId: widget.companyId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: _orange));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEmptyState('No devices registered.', 'Tap "Add Device" to register one.');
+                  return _buildEmptyState('No users found.', 'Tap "Add User" to create an account.');
                 }
 
-                final devices = snapshot.data!.where((d) {
+                final users = snapshot.data!.where((u) {
                   if (_searchQuery.isEmpty) return true;
-                  return d.serialNo.toLowerCase().contains(_searchQuery) ||
-                      d.plateNo.toLowerCase().contains(_searchQuery);
+                  return (u.name ?? '').toLowerCase().contains(_searchQuery) ||
+                      u.email.toLowerCase().contains(_searchQuery);
                 }).toList();
 
-                if (devices.isEmpty) {
-                  return _buildEmptyState('No devices match your search.', 'Try a different query.');
+                if (users.isEmpty) {
+                  return _buildEmptyState('No users match your search.', 'Try a different query.');
                 }
 
                 return Container(
@@ -326,9 +349,9 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                     child: ListView.separated(
-                      itemCount: devices.length,
+                      itemCount: users.length,
                       separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
-                      itemBuilder: (context, index) => _buildDeviceRow(devices[index]),
+                      itemBuilder: (context, index) => _buildUserRow(users[index]),
                     ),
                   ),
                 );
@@ -340,51 +363,48 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
     );
   }
 
-  Widget _buildDeviceRow(Device device) {
+  Widget _buildUserRow(AppUser user) {
+    final roleColor = user.role == 'driver' ? Colors.blue : (user.role == 'admin' ? Colors.purple : Colors.teal);
     return Container(
       color: _bg,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: _orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(7),
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: _orange.withValues(alpha: 0.1),
+                  child: Text(
+                    (user.name ?? user.email).substring(0, 1).toUpperCase(),
+                    style: const TextStyle(color: _orange, fontWeight: FontWeight.bold),
                   ),
-                  child: const Icon(Icons.tablet_mac, color: _orange, size: 15),
                 ),
                 const SizedBox(width: 10),
-                Text(device.serialNo, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13, fontFamily: 'monospace')),
+                Text(user.name ?? '—', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
               ],
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(device.plateNo.isEmpty ? '—' : device.plateNo, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                Text('Body: ${device.bodyNo.isEmpty ? "—" : device.bodyNo}', style: const TextStyle(color: _faint, fontSize: 11)),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(device.company, style: const TextStyle(color: Colors.white70, fontSize: 13), overflow: TextOverflow.ellipsis),
+            flex: 4,
+            child: Text(user.email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
           ),
           Expanded(
             flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(device.ptuNo.isEmpty ? '—' : device.ptuNo, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                Text(device.accreditationNo.isEmpty ? '—' : device.accreditationNo, style: const TextStyle(color: _faint, fontSize: 11)),
-              ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: roleColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: roleColor.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                user.role.toUpperCase(),
+                style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
           SizedBox(
@@ -395,12 +415,12 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, color: _faint, size: 18),
                   tooltip: 'Edit',
-                  onPressed: () => _showDeviceDialog(existing: device),
+                  onPressed: () => _showUserDialog(existing: user),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                  tooltip: 'Remove',
-                  onPressed: () => _confirmDelete(device),
+                  tooltip: 'Delete',
+                  onPressed: () => _confirmDelete(user),
                 ),
               ],
             ),
@@ -442,7 +462,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.tablet_mac_outlined, color: _faint.withValues(alpha: 0.4), size: 52),
+            Icon(Icons.people_outline, color: _faint.withValues(alpha: 0.4), size: 52),
             const SizedBox(height: 12),
             Text(title, style: const TextStyle(color: _faint, fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
@@ -453,24 +473,17 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
     );
   }
 
-  InputDecoration _fieldDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: _faint),
-      prefixIcon: Icon(icon, color: _orange, size: 18),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
-    );
-  }
-
-  Widget _buildDialogField(TextEditingController ctrl, String label, IconData icon, {bool enabled = true}) {
+  Widget _buildDialogField(TextEditingController ctrl, String label, IconData icon) {
     return TextField(
       controller: ctrl,
-      enabled: enabled,
-      style: TextStyle(color: enabled ? Colors.white : Colors.white38),
-      decoration: _fieldDecoration(label, icon).copyWith(
-        fillColor: enabled ? Colors.white.withValues(alpha: 0.05) : Colors.black26,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: _faint),
+        prefixIcon: Icon(icon, color: _orange, size: 18),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
       ),
     );
   }

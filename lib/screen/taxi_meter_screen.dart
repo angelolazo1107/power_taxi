@@ -77,6 +77,9 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     });
 
     if (isLoggedIn && mounted) {
+      final serialNo = prefs.getString('serialNo');
+      debugPrint('TAXI_METER_SCREEN: Passing Serial No to BLoC: "$serialNo"');
+      
       context.read<TaxiMeterBloc>().add(UpdateDriverInfo(
             driverId: driverId ?? '',
             driverName: driverName,
@@ -85,7 +88,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
             companyName: prefs.getString('companyName'),
             ptuNo: prefs.getString('ptuNo'),
             accreditationNo: prefs.getString('accreditationNo'),
-            serialNo: prefs.getString('serialNo'),
+            serialNo: serialNo,
             tin: prefs.getString('tin'),
             minNo: prefs.getString('minNo'),
           ));
@@ -586,42 +589,47 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 24.0, right: 12.0),
-                          child: Text(
-                            '₱',
-                            style: TextStyle(
-                              color: accentOrange,
-                              fontSize: 56,
+                    // Main Fare Row with FittedBox to prevent overflow
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 24.0, right: 12),
+                            child: Text(
+                              '₱',
+                              style: TextStyle(
+                                  color: accentOrange,
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1),
+                            ),
+                          ),
+                          Text(
+                            wholeStr,
+                            style: const TextStyle(
+                              color: lightAccentOrange,
+                              fontSize: 180,
                               fontWeight: FontWeight.w900,
+                              height: 1.0,
                             ),
                           ),
-                        ),
-                        Text(
-                          wholeStr,
-                          style: const TextStyle(
-                            color: lightAccentOrange,
-                            fontSize: 180,
-                            fontWeight: FontWeight.w900,
-                            height: 1.0,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 100.0, left: 4.0),
-                          child: Text(
-                            decStr,
-                            style: TextStyle(
-                              color: lightAccentOrange.withAlpha(200),
-                              fontSize: 56,
-                              fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 24.0, left: 4),
+                            child: Text(
+                              decStr,
+                              style: TextStyle(
+                                color: lightAccentOrange.withAlpha(200),
+                                fontSize: 64,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -2,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _buildMainActionButton(state),

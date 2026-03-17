@@ -18,10 +18,11 @@ class AdminService {
   }
 
   Future<void> addCompany(String name, String tin) async {
-    if (name.isEmpty) throw 'Company name cannot be empty';
+    final cleanName = name.trim();
+    final cleanTin = tin.trim();
     await _firestore.collection('companies').add({
-      'name': name,
-      'tin': tin,
+      'name': cleanName,
+      'tin': cleanTin,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -58,12 +59,19 @@ class AdminService {
   }
 
   Future<void> addDevice(Device device) async {
-    // 1. Save to devices collection
-    await _firestore.collection('devices').doc(device.serialNo).set(device.toMap());
+    final cleanSerial = device.serialNo.trim().toUpperCase();
+    // 1. Save to devices collection with default status fields
+    await _firestore.collection('devices').doc(cleanSerial).set({
+      ...device.toMap(),
+      'status': 'offline',       // Default: offline until device connects
+      'lastSeen': null,          // Will be set when device first connects
+      'currentDriver': null,     // Will be set when driver logs in
+      'dailySales': 0.0,         // Starts at zero
+    });
 
     // 2. Automatically create a user entry so the device can log in
-    await _firestore.collection('users').doc(device.serialNo).set({
-      'email': device.serialNo,
+    await _firestore.collection('users').doc(cleanSerial).set({
+      'email': cleanSerial,
       'password': '123', // Default password
       'role': 'device',
       'createdAt': FieldValue.serverTimestamp(),
@@ -75,10 +83,11 @@ class AdminService {
   }
 
   Future<void> deleteDevice(String serialNo) async {
+    final cleanSerial = serialNo.trim().toUpperCase();
     // Delete device
-    await _firestore.collection('devices').doc(serialNo).delete();
+    await _firestore.collection('devices').doc(cleanSerial).delete();
     // Also delete associated device user
-    await _firestore.collection('users').doc(serialNo).delete();
+    await _firestore.collection('users').doc(cleanSerial).delete();
   }
 
   // Users Management

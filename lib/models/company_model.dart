@@ -8,10 +8,11 @@ class Company {
 
   Company({
     this.id,
-    required this.name,
-    this.tin = '',
+    required String name,
+    String tin = '',
     this.createdAt,
-  });
+  })  : name = name.trim(),
+        tin = tin.trim();
 
   factory Company.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;

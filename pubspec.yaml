@@ -50,7 +50,6 @@ dependencies:
   connectivity_plus: ^7.0.0
   firebase_auth: ^6.2.0
   path_provider: ^2.1.5
-  device_info_plus: ^12.3.0
 
 dev_dependencies:
   flutter_test:
