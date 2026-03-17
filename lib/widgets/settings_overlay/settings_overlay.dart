@@ -505,20 +505,20 @@ class _ActionBar extends StatelessWidget {
 Widget _buildTabContent(BuildContext context, int index, TaxiMeterState state) {
   switch (index) {
     case 1:
-      return _buildReceiptForm();
+      return _buildReceiptForm(state);
     case 2:
       return _buildReportsForm(context, state);
     case 3:
       return _buildSystemForm(context, state);
     default:
-      return _buildProfileForm();
+      return _buildProfileForm(state);
   }
 }
 
 // ─────────────────────────────────────────────
 //  PROFILE TAB
 // ─────────────────────────────────────────────
-Widget _buildProfileForm() {
+Widget _buildProfileForm(TaxiMeterState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -529,7 +529,7 @@ Widget _buildProfileForm() {
           Expanded(
             child: _inputField(
               'DRIVER NAME',
-              'Juan Dela Cruz',
+              state.driverName ?? 'NOT SET',
               Icons.person_outline,
             ),
           ),
@@ -537,7 +537,7 @@ Widget _buildProfileForm() {
           Expanded(
             child: _inputField(
               'PLATE NUMBER',
-              'ABC-1234',
+              state.plateNo ?? 'NOT SET',
               Icons.directions_car_outlined,
             ),
           ),
@@ -549,12 +549,14 @@ Widget _buildProfileForm() {
           Expanded(
             child: _inputField(
               'OPERATOR',
-              'METRO TRANSIT CORP.',
+              state.companyName ?? 'NOT SET',
               Icons.business_outlined,
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: _inputField('C.C. BODY NO.', 'UV-9988', Icons.tag)),
+          Expanded(
+              child: _inputField(
+                  'C.C. BODY NO.', state.bodyNo ?? 'NOT SET', Icons.tag)),
         ],
       ),
       const SizedBox(height: 20),
@@ -565,8 +567,8 @@ Widget _buildProfileForm() {
           Expanded(
             child: _readonlyChip(
               Icons.badge_outlined,
-              'LTFRB PERMIT',
-              'LTFRB-2024-001',
+              'PTU NUMBER',
+              state.ptuNo ?? 'NOT SET',
               _orange,
             ),
           ),
@@ -575,12 +577,35 @@ Widget _buildProfileForm() {
             child: _readonlyChip(
               Icons.fingerprint,
               'DRIVER ID',
-              'DRV-990821',
+              state.driverId ?? 'NOT SET',
               _orange,
             ),
           ),
         ],
       ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: _readonlyChip(
+              Icons.numbers,
+              'COMPANY TIN',
+              state.tin ?? 'NOT SET',
+              _gold,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _readonlyChip(
+              Icons.pin_outlined,
+              'ACCREDITATION',
+              state.accreditationNo ?? 'NOT SET',
+              _gold,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
       const SizedBox(height: 20),
     ],
   );
@@ -590,21 +615,21 @@ Widget _buildProfileForm() {
 // ─────────────────────────────────────────────
 //  RECEIPT TAB
 // ─────────────────────────────────────────────
-Widget _buildReceiptForm() {
+Widget _buildReceiptForm(TaxiMeterState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _sectionLabel('HEADER CONFIGURATION', Icons.receipt_long, _orange),
       const SizedBox(height: 14),
-      _inputField('COMPANY TIN', '123-456-789-000', Icons.numbers),
+      _inputField('COMPANY TIN', state.tin ?? 'NOT SET', Icons.numbers),
       const SizedBox(height: 10),
       _inputField(
         'ADDRESS',
-        '123 EDSA, Quezon City, Metro Manila',
+        '---',
         Icons.location_on_outlined,
       ),
       const SizedBox(height: 10),
-      _inputField('TELEPHONE', '(02) 8123-4567', Icons.phone_outlined),
+      _inputField('TELEPHONE', '---', Icons.phone_outlined),
       const SizedBox(height: 16),
       _sectionLabel(
         'ACCREDITATION NUMBERS',
@@ -616,8 +641,8 @@ Widget _buildReceiptForm() {
         children: [
           Expanded(
             child: _inputField(
-              'PERMIT NO.',
-              'LTFRB-2024-001',
+              'ACCREDITATION',
+              state.accreditationNo ?? 'NOT SET',
               Icons.pin_outlined,
             ),
           ),
@@ -625,14 +650,14 @@ Widget _buildReceiptForm() {
           Expanded(
             child: _inputField(
               'MACHINE ID (MIN)',
-              '18082023-001',
+              state.minNo ?? 'NOT SET',
               Icons.computer,
             ),
           ),
         ],
       ),
       const SizedBox(height: 10),
-      _inputField('SERIAL NO.', 'SN-77889900', Icons.qr_code),
+      _inputField('SERIAL NO.', state.serialNo ?? 'NOT SET', Icons.qr_code),
       const SizedBox(height: 20),
     ],
   );

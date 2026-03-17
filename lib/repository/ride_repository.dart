@@ -1,4 +1,4 @@
-import 'package:powertaxi/model/ride_record.dart';
+import 'package:powertaxi/models/ride_record.dart';
 
 
 

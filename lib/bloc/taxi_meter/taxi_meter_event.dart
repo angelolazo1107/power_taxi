@@ -4,7 +4,7 @@ abstract class TaxiMeterEvent extends Equatable {
   const TaxiMeterEvent();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class CheckActiveRide extends TaxiMeterEvent {}
@@ -14,7 +14,7 @@ class StartRide extends TaxiMeterEvent {
   const StartRide(this.driverId);
 
   @override
-  List<Object> get props => [driverId];
+  List<Object?> get props => [driverId];
 }
 
 class Tick extends TaxiMeterEvent {}
@@ -24,7 +24,7 @@ class HardwareDistanceUpdated extends TaxiMeterEvent {
   const HardwareDistanceUpdated(this.newDistanceMeters);
 
   @override
-  List<Object> get props => [newDistanceMeters];
+  List<Object?> get props => [newDistanceMeters];
 }
 
 class StopRide extends TaxiMeterEvent {
@@ -34,7 +34,7 @@ class StopRide extends TaxiMeterEvent {
   const StopRide({this.discountType = 'REGULAR', this.discountRate = 0.0});
 
   @override
-  List<Object> get props => [discountType, discountRate];
+  List<Object?> get props => [discountType, discountRate];
 }
 
 class ResetMeter extends TaxiMeterEvent {}
@@ -56,7 +56,7 @@ class ToggleSettings extends TaxiMeterEvent {
   const ToggleSettings(this.isVisible);
 
   @override
-  List<Object> get props => [isVisible];
+  List<Object?> get props => [isVisible];
 }
 
 class ChangeSettingsTab extends TaxiMeterEvent {
@@ -64,7 +64,7 @@ class ChangeSettingsTab extends TaxiMeterEvent {
   const ChangeSettingsTab(this.index);
 
   @override
-  List<Object> get props => [index];
+  List<Object?> get props => [index];
 }
 
 class PrintReceipt extends TaxiMeterEvent {
@@ -74,7 +74,7 @@ class PrintReceipt extends TaxiMeterEvent {
   const PrintReceipt({this.discountType = 'Regular', this.discountRate = 0.0});
 
   @override
-  List<Object> get props => [discountType, discountRate];
+  List<Object?> get props => [discountType, discountRate];
 }
 
 class PrintXReading extends TaxiMeterEvent {}
@@ -93,7 +93,7 @@ class TogglePrinterSize extends TaxiMeterEvent {
   const TogglePrinterSize(this.is80mm);
 
   @override
-  List<Object> get props => [is80mm];
+  List<Object?> get props => [is80mm];
 }
 
 class ClearReportFlags extends TaxiMeterEvent {}
@@ -105,7 +105,7 @@ class LogActivity extends TaxiMeterEvent {
   const LogActivity({required this.action, this.user = 'ADMIN'});
 
   @override
-  List<Object> get props => [action, user];
+  List<Object?> get props => [action, user];
 }
 
 class PrintActivityLog extends TaxiMeterEvent {
@@ -115,5 +115,45 @@ class PrintActivityLog extends TaxiMeterEvent {
   const PrintActivityLog({required this.from, required this.to});
 
   @override
-  List<Object> get props => [from, to];
+  List<Object?> get props => [from, to];
+}
+
+class UpdateDriverInfo extends TaxiMeterEvent {
+  final String? driverName;
+  final String? driverId;
+  final String? plateNo;
+  final String? bodyNo;
+  final String? companyName;
+  final String? ptuNo;
+  final String? accreditationNo;
+  final String? serialNo;
+  final String? tin;
+  final String? minNo;
+
+  const UpdateDriverInfo({
+    this.driverName,
+    this.driverId,
+    this.plateNo,
+    this.bodyNo,
+    this.companyName,
+    this.ptuNo,
+    this.accreditationNo,
+    this.serialNo,
+    this.tin,
+    this.minNo,
+  });
+
+  @override
+  List<Object?> get props => [
+    driverName,
+    driverId,
+    plateNo,
+    bodyNo,
+    companyName,
+    ptuNo,
+    accreditationNo,
+    serialNo,
+    tin,
+    minNo,
+  ];
 }

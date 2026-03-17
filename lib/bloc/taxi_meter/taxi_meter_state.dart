@@ -16,6 +16,18 @@ abstract class TaxiMeterState extends Equatable {
   final bool is80mmPrinter;
   final int waitingSeconds;
   final bool activityLogPrinted;
+  
+  // Driver & Device Info
+  final String? driverName;
+  final String? driverId;
+  final String? plateNo;
+  final String? bodyNo;
+  final String? companyName;
+  final String? ptuNo;
+  final String? accreditationNo;
+  final String? serialNo;
+  final String? tin;
+  final String? minNo;
 
   const TaxiMeterState({
     required this.fare,
@@ -33,6 +45,16 @@ abstract class TaxiMeterState extends Equatable {
     this.is80mmPrinter = false,
     this.waitingSeconds = 0,
     this.activityLogPrinted = false,
+    this.driverName,
+    this.driverId,
+    this.plateNo,
+    this.bodyNo,
+    this.companyName,
+    this.ptuNo,
+    this.accreditationNo,
+    this.serialNo,
+    this.tin,
+    this.minNo,
   });
 
   @override
@@ -52,6 +74,16 @@ abstract class TaxiMeterState extends Equatable {
     is80mmPrinter,
     waitingSeconds,
     activityLogPrinted,
+    driverName,
+    driverId,
+    plateNo,
+    bodyNo,
+    companyName,
+    ptuNo,
+    accreditationNo,
+    serialNo,
+    tin,
+    minNo,
   ];
 }
 
@@ -65,6 +97,16 @@ class MeterInitial extends TaxiMeterState {
     super.xReadingPerformed,
     super.remittancePerformed,
     super.activityLogPrinted,
+    super.driverName,
+    super.driverId,
+    super.plateNo,
+    super.bodyNo,
+    super.companyName,
+    super.ptuNo,
+    super.accreditationNo,
+    super.serialNo,
+    super.tin,
+    super.minNo,
   }) : super(
          fare: 0.0,
          elapsedSeconds: 0,
@@ -89,6 +131,16 @@ class MeterRunning extends TaxiMeterState {
     super.xReadingPerformed,
     super.remittancePerformed,
     super.activityLogPrinted,
+    super.driverName,
+    super.driverId,
+    super.plateNo,
+    super.bodyNo,
+    super.companyName,
+    super.ptuNo,
+    super.accreditationNo,
+    super.serialNo,
+    super.tin,
+    super.minNo,
   });
 
   @override
@@ -115,6 +167,16 @@ class MeterStopped extends TaxiMeterState {
     super.xReadingPerformed,
     super.remittancePerformed,
     super.activityLogPrinted,
+    super.driverName,
+    super.driverId,
+    super.plateNo,
+    super.bodyNo,
+    super.companyName,
+    super.ptuNo,
+    super.accreditationNo,
+    super.serialNo,
+    super.tin,
+    super.minNo,
   });
 }
 
@@ -132,5 +194,15 @@ class MeterPaused extends TaxiMeterState {
     super.xReadingPerformed,
     super.remittancePerformed,
     super.activityLogPrinted,
+    super.driverName,
+    super.driverId,
+    super.plateNo,
+    super.bodyNo,
+    super.companyName,
+    super.ptuNo,
+    super.accreditationNo,
+    super.serialNo,
+    super.tin,
+    super.minNo,
   });
 }

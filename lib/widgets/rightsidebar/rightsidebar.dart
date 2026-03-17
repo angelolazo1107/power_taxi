@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_event.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
-import 'package:powertaxi/model/ride_record.dart';
+import 'package:powertaxi/models/ride_record.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/widgets/receipt_sunmi/receipt_show_dialog.dart';
 import 'package:powertaxi/widgets/settings_overlay/settings_overlay.dart';

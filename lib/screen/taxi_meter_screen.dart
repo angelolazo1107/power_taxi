@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_event.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
-import 'package:powertaxi/model/ride_record.dart';
+import 'package:powertaxi/models/ride_record.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/screen/login/log_in_screen.dart';
 import 'package:powertaxi/widgets/receipt_sunmi/receipt_show_dialog.dart';
@@ -54,11 +54,30 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final driverId = prefs.getString('driverId');
+    final driverName = prefs.getString('driverName') ?? 'DRIVER';
+
     setState(() {
-      _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      _driverId = prefs.getString('driverId');
-      _driverName = prefs.getString('driverName') ?? 'DRIVER';
+      _isLoggedIn = isLoggedIn;
+      _driverId = driverId;
+      _driverName = driverName;
     });
+
+    if (isLoggedIn && mounted) {
+      context.read<TaxiMeterBloc>().add(UpdateDriverInfo(
+            driverId: driverId ?? '',
+            driverName: driverName,
+            plateNo: prefs.getString('plateNo'),
+            bodyNo: prefs.getString('bodyNo'),
+            companyName: prefs.getString('companyName'),
+            ptuNo: prefs.getString('ptuNo'),
+            accreditationNo: prefs.getString('accreditationNo'),
+            serialNo: prefs.getString('serialNo'),
+            tin: prefs.getString('tin'),
+            minNo: prefs.getString('minNo'),
+          ));
+    }
   }
 
   Future<void> _showLoginOverlay() async {

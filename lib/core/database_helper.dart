@@ -1,5 +1,7 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 class LocalDatabaseHelper {
   // 1. Singleton setup
@@ -10,12 +12,21 @@ class LocalDatabaseHelper {
 
   // 2. Open the database (or create it if it doesn't exist)
   Future<Database> get database async {
+    if (kIsWeb) {
+      throw UnsupportedError('Local database is not supported on Web.');
+    }
     if (_database != null) return _database!;
     _database = await _initDB('taxi_meter.db');
     return _database!;
   }
 
   Future<Database> _initDB(String filePath) async {
+    // Initialize FFI for Windows / Linux / macOS
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 

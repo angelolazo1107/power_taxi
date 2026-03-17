@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:powertaxi/core/database_helper.dart';
-import 'package:powertaxi/model/ride_record.dart';
+import 'package:powertaxi/models/ride_record.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 
 // TODO: Make sure to import your LocalDatabaseHelper
