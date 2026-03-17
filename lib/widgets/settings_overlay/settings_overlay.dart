@@ -548,7 +548,7 @@ Widget _buildProfileForm(TaxiMeterState state) {
         children: [
           Expanded(
             child: _inputField(
-              'OPERATOR',
+              'COMPANY NAME',
               state.companyName ?? 'NOT SET',
               Icons.business_outlined,
             ),

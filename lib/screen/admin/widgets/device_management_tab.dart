@@ -20,6 +20,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
   final TextEditingController _minController = TextEditingController();
   final TextEditingController _plateController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
+  final TextEditingController _tinController = TextEditingController();
   String? _selectedCompany;
   String? _editingSerialNo;
 
@@ -48,6 +49,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
       _minController.text = device.minNo;
       _plateController.text = device.plateNo;
       _bodyController.text = device.bodyNo;
+      _tinController.text = device.tin;
       _selectedCompany = device.company;
     });
   }
@@ -61,6 +63,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
       _minController.clear();
       _plateController.clear();
       _bodyController.clear();
+      _tinController.clear();
       _selectedCompany = widget.filterCompanyName;
     });
   }
@@ -80,6 +83,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
         ptuNo: _ptuController.text,
         accreditationNo: _accreditationController.text,
         minNo: _minController.text,
+        tin: _tinController.text,
         plateNo: _plateController.text,
         bodyNo: _bodyController.text,
       );
@@ -229,6 +233,8 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                                   Expanded(child: _buildTextField(_bodyController, 'Body No.')),
                                 ],
                               ),
+                              const SizedBox(height: 16),
+                              _buildTextField(_tinController, 'Device TIN (BIR)'),
                               const SizedBox(height: 30),
                               Row(
                                 children: [
@@ -307,7 +313,7 @@ class _DeviceManagementTabState extends State<DeviceManagementTab> {
                                 child: ListTile(
                                   onTap: () => _loadDeviceForEditing(dev),
                                   title: Text("Serial: ${dev.serialNo}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                  subtitle: Text("Plate: ${dev.plateNo} | Body: ${dev.bodyNo}\nCompany: ${dev.company}", style: const TextStyle(color: Colors.white70)),
+                                  subtitle: Text("Plate: ${dev.plateNo} | Body: ${dev.bodyNo}\nCompany: ${dev.company} | TIN: ${dev.tin}", style: const TextStyle(color: Colors.white70)),
                                   leading: const Icon(Icons.tablet_mac, color: Colors.orange),
                                   trailing: IconButton(
                                     icon: const Icon(Icons.delete_outline, color: textFaint, size: 20),

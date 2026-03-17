@@ -12,6 +12,7 @@ import 'package:powertaxi/widgets/receipt_sunmi/receipt_show_dialog.dart';
 import 'package:powertaxi/widgets/settings_overlay/settings_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:powertaxi/services/auth_service.dart';
 
 class TaxiMeterScreen extends StatefulWidget {
   const TaxiMeterScreen({Key? key}) : super(key: key);
@@ -55,6 +56,17 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    if (isLoggedIn) {
+      try {
+        final authService = AuthService();
+        await authService.syncDeviceData();
+        await prefs.reload(); // Force refresh the memory cache
+      } catch (e) {
+        debugPrint('Failed to sync device data: $e');
+      }
+    }
+
     final driverId = prefs.getString('driverId');
     final driverName = prefs.getString('driverName') ?? 'DRIVER';
 
@@ -625,28 +637,31 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
 
   Widget _buildMainActionButton(TaxiMeterState state) {
     if (!_isLoggedIn) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E222A), // Faint grey button
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_arrow, color: textFaint, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'LOGIN TO START',
-              style: TextStyle(
-                color: textFaint,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                letterSpacing: 1.2,
+      return GestureDetector(
+        onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E222A), // Faint grey button
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline, color: textFaint, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'LOGIN TO START',
+                style: TextStyle(
+                  color: textFaint,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }

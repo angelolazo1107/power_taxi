@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleDriverLogin(String name, String pin) async {
+  Future<void> _handleDriverLogin(String name, String pin, String? selectedDeviceSerial) async {
     if (name.isEmpty || pin.length < 4) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter driver name and 4-digit PIN.')),
@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? deviceSerialNo = prefs.getString('userRole') == 'device' ? prefs.getString('driverName') : null;
+      final String? deviceSerialNo = selectedDeviceSerial ?? prefs.getString('deviceSerialNo');
       
       await _authService.driverLogin(name, pin, deviceSerialNo: deviceSerialNo);
       if (mounted) {

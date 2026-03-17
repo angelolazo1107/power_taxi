@@ -12,14 +12,44 @@ class CompanyManagementTab extends StatefulWidget {
 
 class _CompanyManagementTabState extends State<CompanyManagementTab> {
   final TextEditingController _companyNameController = TextEditingController();
+  final TextEditingController _tinController = TextEditingController();
+  String? _editingCompanyId;
+
+  void _loadCompanyForEditing(Company company) {
+    setState(() {
+      _editingCompanyId = company.id;
+      _companyNameController.text = company.name;
+      _tinController.text = company.tin;
+    });
+  }
+
+  void _resetForm() {
+    setState(() {
+      _editingCompanyId = null;
+      _companyNameController.clear();
+      _tinController.clear();
+    });
+  }
 
   Future<void> _saveCompany() async {
     try {
-      await widget.adminService.addCompany(_companyNameController.text);
-      _companyNameController.clear();
+      if (_editingCompanyId != null) {
+        await widget.adminService.updateCompany(Company(
+          id: _editingCompanyId,
+          name: _companyNameController.text,
+          tin: _tinController.text,
+        ));
+      } else {
+        await widget.adminService.addCompany(
+          _companyNameController.text,
+          _tinController.text,
+        );
+      }
+      
+      _resetForm();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Company added successfully!')),
+          SnackBar(content: Text(_editingCompanyId != null ? 'Company updated successfully!' : 'Company added successfully!')),
         );
       }
     } catch (e) {
@@ -48,7 +78,7 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Add Company', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.orange)),
+                      Text(_editingCompanyId != null ? 'Edit Company' : 'Add Company', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.orange)),
                       const SizedBox(height: 20),
                       Card(
                         color: const Color(0xFF1E1E1E),
@@ -69,19 +99,54 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
                                   fillColor: Colors.white10,
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  onPressed: _saveCompany,
-                                  child: const Text('Save Company', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _tinController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  labelText: 'Company TIN',
+                                  labelStyle: const TextStyle(color: Colors.white70),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  filled: true,
+                                  fillColor: Colors.white10,
                                 ),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  if (_editingCompanyId != null) ...[
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 50,
+                                        child: OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(color: Colors.orange),
+                                            foregroundColor: Colors.orange,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          onPressed: _resetForm,
+                                          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                  ],
+                                  Expanded(
+                                    flex: 2,
+                                    child: SizedBox(
+                                      height: 50,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange,
+                                          foregroundColor: Colors.black,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
+                                        onPressed: _saveCompany,
+                                        child: Text(_editingCompanyId != null ? 'Update Company' : 'Save Company', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -115,8 +180,10 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
                                 margin: const EdgeInsets.symmetric(vertical: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 child: ListTile(
+                                  onTap: () => _loadCompanyForEditing(company),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                                   title: Text(company.name, style: const TextStyle(color: Colors.white, fontSize: 18)),
+                                  subtitle: Text("TIN: ${company.tin}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
                                   leading: Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle),

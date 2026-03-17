@@ -3,11 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Company {
   final String? id;
   final String name;
+  final String tin;
   final DateTime? createdAt;
 
   Company({
     this.id,
     required this.name,
+    this.tin = '',
     this.createdAt,
   });
 
@@ -16,6 +18,7 @@ class Company {
     return Company(
       id: doc.id,
       name: data['name'] ?? '',
+      tin: data['tin'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -23,6 +26,7 @@ class Company {
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'tin': tin,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }

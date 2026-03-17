@@ -17,12 +17,18 @@ class AdminService {
             snapshot.docs.map((doc) => Company.fromFirestore(doc)).toList());
   }
 
-  Future<void> addCompany(String name) async {
+  Future<void> addCompany(String name, String tin) async {
     if (name.isEmpty) throw 'Company name cannot be empty';
     await _firestore.collection('companies').add({
       'name': name,
+      'tin': tin,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> updateCompany(Company company) async {
+    if (company.id == null) throw 'Company ID is missing';
+    await _firestore.collection('companies').doc(company.id).update(company.toMap());
   }
 
   Future<void> deleteCompany(String companyId) async {

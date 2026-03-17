@@ -6,6 +6,7 @@ class Device {
   final String ptuNo;
   final String accreditationNo;
   final String minNo;
+  final String tin;
   final String plateNo;
   final String bodyNo;
   final DateTime? createdAt;
@@ -16,6 +17,7 @@ class Device {
     required this.ptuNo,
     required this.accreditationNo,
     required this.minNo,
+    this.tin = '',
     required this.plateNo,
     required this.bodyNo,
     this.createdAt,
@@ -29,6 +31,7 @@ class Device {
       ptuNo: data['ptuNo'] ?? '',
       accreditationNo: data['accreditationNo'] ?? '',
       minNo: data['minNo'] ?? '',
+      tin: data['tin'] ?? '',
       plateNo: data['plateNo'] ?? '',
       bodyNo: data['bodyNo'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
@@ -42,6 +45,7 @@ class Device {
       'ptuNo': ptuNo,
       'accreditationNo': accreditationNo,
       'minNo': minNo,
+      'tin': tin,
       'plateNo': plateNo,
       'bodyNo': bodyNo,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
