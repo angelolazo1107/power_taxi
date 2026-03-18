@@ -100,27 +100,19 @@ class AuthService {
     await prefs.remove('manuallySetSerialNo');
   }
 
-  /// Checks if the serial number exists in Firestore before allowing the change.
-  /// Throws an error message if not found.
+  /// Sets the serial number locally without checking Firestore 
+  /// (as `driverLogin` will handle checking if the device truly exists).
   Future<void> validateAndSetSerialNumber(String serial) async {
     final cleanSerial = serial.trim().toUpperCase();
     if (cleanSerial.isEmpty) throw 'Serial number cannot be empty';
 
-    debugPrint('AUTH_SERVICE: Manually validating serial number: $cleanSerial');
     try {
-      final doc = await _firestore.collection('devices').doc(cleanSerial).get();
-      if (!doc.exists) {
-        debugPrint('AUTH_SERVICE: VALIDATION FAILED - "$cleanSerial" not found in Firestore.');
-        throw 'Serial number "$cleanSerial" not found in Admin Dashboard. Please add it there first.';
-      }
-      
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('manuallySetSerialNo', cleanSerial);
       await prefs.setString('deviceSerialNo', cleanSerial); // Keep in sync
-      debugPrint('AUTH_SERVICE: VALIDATION SUCCESS - Manually set Serial No to: $cleanSerial');
+      debugPrint('AUTH_SERVICE: Manually set Serial No to: $cleanSerial');
     } catch (e) {
-      if (e is String) rethrow;
-      throw 'Validation failed: $e';
+      throw 'Failed to set serial number locally: $e';
     }
   }
 
@@ -204,6 +196,9 @@ class AuthService {
         }
 
         userData = querySnapshot.docs.first.data();
+        // Capture the Firestore document ID (not inside the data map)
+        final String docId = querySnapshot.docs.first.id;
+        userData['id'] = docId; // Inject doc ID into userData map
         final List<String> accessibleCompanies = List<String>.from(
           userData['accessibleCompanies'] ?? [],
         );
@@ -248,15 +243,17 @@ class AuthService {
         }
       }
 
-      final String email = userData!['email'] ?? 'driver';
+      final String email = userData!['email'] ?? name;
+      final String savedDriverId = userData['id'] ?? email;
 
       // Record state in SharedPreferences
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('userRole', 'driver');
       await prefs.setString('driverName', userData['name'] ?? name);
-      await prefs.setString('driverId', userData['id'] ?? email);
+      await prefs.setString('driverId', savedDriverId);
       await prefs.setString('deviceSerialNo', effectiveSerialNo);
-      await prefs.setString('serialNo', effectiveSerialNo); // Consolidate keys
+      await prefs.setString('serialNo', effectiveSerialNo);
+      await prefs.setString('userEmail', email); // keep email separately
 
       // Immediately cache this driver for offline use
       final String? cachedStr = prefs.getString('cached_drivers');

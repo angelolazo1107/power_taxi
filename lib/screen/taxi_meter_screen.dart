@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_event.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
@@ -15,13 +15,14 @@ import 'package:intl/intl.dart';
 import 'package:powertaxi/services/auth_service.dart';
 
 class TaxiMeterScreen extends StatefulWidget {
-  const TaxiMeterScreen({Key? key}) : super(key: key);
+  const TaxiMeterScreen({super.key});
 
   @override
   State<TaxiMeterScreen> createState() => _TaxiMeterScreenState();
 }
 
-class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
+class _TaxiMeterScreenState extends State<TaxiMeterScreen>
+    with WidgetsBindingObserver {
   // --- Black & Orange Color Palette ---
   static const Color bgColor      = Color(0xFF0A0C0F); // Deepest black
   static const Color panelColor   = Color(0xFF111418); // Slightly lighter panels
@@ -36,21 +37,110 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
 
+  // ── Dialog Button Callbacks (set when a dialog is open) ───────────────────
+  // When a confirmation/discount dialog is open, F4 = confirm, F6 = cancel.
+  VoidCallback? _dialogConfirmCallback;
+  VoidCallback? _dialogCancelCallback;
+
+  void _registerDialogCallbacks(VoidCallback onConfirm, VoidCallback onCancel) {
+    _dialogConfirmCallback = onConfirm;
+    _dialogCancelCallback = onCancel;
+  }
+
+  void _clearDialogCallbacks() {
+    _dialogConfirmCallback = null;
+    _dialogCancelCallback = null;
+  }
+
+  // ── Howen MDT Hero AT5 Hardware Buttons ──────────────────────────────────
+  // Native Android intercepts Game Button key events in MainActivity.kt via
+  // dispatchKeyEvent() and pushes them to Flutter via EventChannel.
+  // Button index received: 4 = F4 (START), 5 = F5 (WAIT/PRINT), 6 = F6 (FINISH)
+  static const _buttonChannel =
+      EventChannel('com.ezbus.taximeter/howen_buttons');
+  StreamSubscription<dynamic>? _buttonSubscription;
+
+  void _onNativeButtonPressed(dynamic buttonIndex) {
+    if (!mounted) return; // guard against callback after dispose
+    final bloc  = context.read<TaxiMeterBloc>();
+    final state = bloc.state;
+    final idx   = buttonIndex as int;
+
+    debugPrint('🎮 Native Button $idx received from Android');
+
+    // ── Dialog mode: route to dialog actions when a dialog is open ──────────
+    if (_dialogConfirmCallback != null || _dialogCancelCallback != null) {
+      if (idx == 4) { debugPrint('🎮 F4 → DIALOG CONFIRM'); _dialogConfirmCallback?.call(); }
+      if (idx == 6) { debugPrint('🎮 F6 → DIALOG CANCEL');  _dialogCancelCallback?.call();  }
+      return;
+    }
+
+    // ── Meter screen actions ──────────────────────────────────────────
+    if (idx == 4) {
+      // F4: START RIDE / NEW RIDE
+      debugPrint('🎮 F4 → START RIDE');
+      if (!_isLoggedIn) { _showLoginOverlay(); return; }
+      if (state is MeterRunning || state is MeterPaused) return;
+      if (state is MeterStopped && state.fare > 0) {
+        bloc.add(ResetMeter());
+      } else {
+        _showStartTripConfirmation(context);
+      }
+    } else if (idx == 5) {
+      // F5: WAIT toggle while running | RESUME when paused | PRINT when stopped
+      if (state is MeterRunning) {
+        debugPrint('🎮 F5 → WAIT toggle');
+        bloc.add(state.isWaiting ? StopWaiting() : StartWaiting());
+      } else if (state is MeterPaused) {
+        debugPrint('🎮 F5 → RESUME');
+        bloc.add(ResumeRide());
+      } else if (state is MeterStopped) {
+        debugPrint('🎮 F5 → PRINT RECEIPT');
+        // BLoC reads all receipt data directly from MeterStopped state
+        bloc.add(const PrintReceipt());
+      }
+    } else if (idx == 6) {
+      // F6: FINISH RIDE
+      debugPrint('🎮 F6 → FINISH RIDE');
+      if (state is MeterRunning || state is MeterPaused) {
+        _showDiscountDialog(context);
+      }
+    }
+  }
+
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkLoginStatus();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _currentTime = DateTime.now();
-      });
+      setState(() => _currentTime = DateTime.now());
     });
+    // Subscribe to native Android button events via EventChannel
+    _buttonSubscription = _buttonChannel
+        .receiveBroadcastStream()
+        .listen(_onNativeButtonPressed);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
+    _buttonSubscription?.cancel();
     super.dispose();
+  }
+
+  /// On resume, re-subscribe to ensure the channel is alive after cold restart.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    if (lifecycleState == AppLifecycleState.resumed) {
+      _buttonSubscription?.cancel();
+      _buttonSubscription = _buttonChannel
+          .receiveBroadcastStream()
+          .listen(_onNativeButtonPressed);
+      debugPrint('🎮 Button channel re-subscribed on app resume.');
+    }
   }
 
   Future<void> _checkLoginStatus() async {
@@ -242,15 +332,15 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb && !_isLoggedIn) {
-      return const LoginScreen(asPage: true);
-    }
-
+    final size = MediaQuery.of(context).size;
+    final isShallow = size.height < 700;
+    final hScale = (size.height / 760).clamp(0.7, 1.2); 
+    
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: EdgeInsets.all(isShallow ? 4.0 : 8.0),
           child: BlocListener<TaxiMeterBloc, TaxiMeterState>(
             listenWhen: (previous, current) =>
                 (current.xReadingPerformed && !previous.xReadingPerformed) ||
@@ -292,29 +382,29 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                   ),
                   child: Column(
                     children: [
-                      _buildTopBar(),
+                      _buildTopBar(isShallow),
                       Expanded(
                         child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
                           builder: (context, state) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              padding: EdgeInsets.symmetric(horizontal: isShallow ? 16.0 : 24.0),
                               child: Column(
                                 children: [
-                                  const SizedBox(height: 16),
-                                  Expanded(child: _buildHeroPanel(state)),
-                                  const SizedBox(height: 24),
+                                  SizedBox(height: isShallow ? 8 : 16),
+                                  Expanded(child: _buildHeroPanel(state, hScale, isShallow)),
+                                  SizedBox(height: isShallow ? 12 : 24),
                                   SizedBox(
-                                    height: 160,
-                                    child: _buildTelemetryRow(state),
+                                    height: (160 * hScale).clamp(110.0, 180.0),
+                                    child: _buildTelemetryRow(state, hScale, isShallow),
                                   ),
-                                  const SizedBox(height: 10),
+                                  SizedBox(height: isShallow ? 6 : 10),
                                 ],
                               ),
                             );
                           },
                         ),
                       ),
-                      _buildFooter(),
+                      _buildFooter(isShallow),
                     ],
                   ),
                 ),
@@ -327,7 +417,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                     },
                   ),
                 ),
-              ],
+                ],
             ),
           ),
         ),
@@ -335,12 +425,12 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(bool isShallow) {
     final dateStr = DateFormat('EEE, MMM d, yyyy').format(_currentTime).toUpperCase();
     final timeStr = DateFormat('hh:mm:ss a').format(_currentTime);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: isShallow ? 16 : 24, vertical: isShallow ? 8 : 16),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: borderColor)),
       ),
@@ -525,7 +615,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     );
   }
 
-  Widget _buildHeroPanel(TaxiMeterState state) {
+  Widget _buildHeroPanel(TaxiMeterState state, double hScale, bool isShallow) {
     // Determine status badge
     String statusText = 'IDLE';
     if (state is MeterRunning) {
@@ -564,13 +654,13 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
             children: [
                // Top Left Status Pills
               Positioned(
-                top: 24,
-                left: 24,
+                top: isShallow ? 16 : 24,
+                left: isShallow ? 16 : 24,
                 child: Row(
                   children: [
-                    _buildPill(Icons.bolt, statusText, isActive: state is MeterRunning),
-                    const SizedBox(width: 12),
-                    _buildPill(Icons.location_on, 'METRO MANILA'),
+                    _buildPill(Icons.bolt, statusText, isActive: state is MeterRunning, isShallow: isShallow),
+                    SizedBox(width: isShallow ? 8 : 12),
+                    _buildPill(Icons.location_on, 'METRO MANILA', isShallow: isShallow),
                   ],
                 ),
               ),
@@ -579,13 +669,13 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'TOTAL FARE AMOUNT',
                       style: TextStyle(
                         color: textFaint,
-                        fontSize: 14,
+                        fontSize: (14 * hScale).clamp(10.0, 16.0),
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 4.0,
+                        letterSpacing: isShallow ? 2.0 : 4.0,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -596,33 +686,33 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 24.0, right: 12),
+                          Padding(
+                            padding: EdgeInsets.only(bottom: 24.0 * hScale, right: 12),
                             child: Text(
                               '₱',
                               style: TextStyle(
                                   color: accentOrange,
-                                  fontSize: 48,
+                                  fontSize: (48 * hScale).clamp(32.0, 56.0),
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1),
                             ),
                           ),
                           Text(
                             wholeStr,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: lightAccentOrange,
-                              fontSize: 180,
+                              fontSize: (180 * hScale).clamp(100.0, 200.0),
                               fontWeight: FontWeight.w900,
                               height: 1.0,
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0, left: 4),
+                            padding: EdgeInsets.only(bottom: 24.0 * hScale, left: 4),
                             child: Text(
                               decStr,
                               style: TextStyle(
                                 color: lightAccentOrange.withAlpha(200),
-                                fontSize: 64,
+                                fontSize: (64 * hScale).clamp(40.0, 72.0),
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: -2,
                               ),
@@ -631,8 +721,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    _buildMainActionButton(state),
+                    SizedBox(height: isShallow ? 12 : 24),
+                    _buildMainActionButton(state, hScale, isShallow),
                   ],
                 ),
               ),
@@ -643,28 +733,28 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     );
   }
 
-  Widget _buildMainActionButton(TaxiMeterState state) {
+  Widget _buildMainActionButton(TaxiMeterState state, double hScale, bool isShallow) {
     if (!_isLoggedIn) {
       return GestureDetector(
-        onTap: () => Navigator.pushReplacementNamed(context, '/login'),
+        onTap: () => _showLoginOverlay(),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          padding: EdgeInsets.symmetric(horizontal: 32, vertical: isShallow ? 12 : 16),
           decoration: BoxDecoration(
             color: const Color(0xFF1E222A), // Faint grey button
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline, color: textFaint, size: 20),
-              SizedBox(width: 8),
+              Icon(Icons.lock_outline, color: textFaint, size: isShallow ? 16 : 20),
+              const SizedBox(width: 8),
               Text(
                 'LOGIN TO START',
                 style: TextStyle(
                   color: textFaint,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: isShallow ? 12 : 14,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -691,7 +781,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 32, vertical: isShallow ? 14 : 20),
               decoration: BoxDecoration(
                 color: running.isWaiting
                     ? Colors.orangeAccent.withAlpha(30)
@@ -716,7 +806,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                     style: TextStyle(
                       color: running.isWaiting ? Colors.orangeAccent : textFaint,
                       fontWeight: FontWeight.w900,
-                      fontSize: 14,
+                      fontSize: isShallow ? 12 : 14,
                       letterSpacing: 1.5,
                     ),
                   ),
@@ -734,9 +824,9 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
               backgroundColor: const Color(0xFF8B1A1A),
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.redAccent),
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 40, vertical: isShallow ? 14 : 20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+              textStyle: TextStyle(fontSize: isShallow ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
             ),
           ),
         ],
@@ -770,9 +860,9 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
               backgroundColor: const Color(0xFF1C0909),
               foregroundColor: Colors.redAccent,
               side: const BorderSide(color: Colors.redAccent),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 32, vertical: isShallow ? 14 : 20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+              textStyle: TextStyle(fontSize: isShallow ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
             ),
           ),
         ],
@@ -835,14 +925,14 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
         foregroundColor: Colors.white,
         elevation: 12,
         shadowColor: const Color(0xFF2E7D32).withAlpha(120),
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+        padding: EdgeInsets.symmetric(horizontal: isShallow ? 32 : 48, vertical: isShallow ? 14 : 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+        textStyle: TextStyle(fontSize: isShallow ? 16 : 18, fontWeight: FontWeight.w900, letterSpacing: 2.0),
       ),
     );
   }
 
-  Widget _buildTelemetryRow(TaxiMeterState state) {
+  Widget _buildTelemetryRow(TaxiMeterState state, double hScale, bool isShallow) {
     // Computed values
     final distKm = (state.distanceMeters / 1000).toStringAsFixed(2);
     
@@ -862,18 +952,18 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
 
     return Row(
       children: [
-        Expanded(child: _buildTelemetryCard('DISTANCE',  Icons.navigation,          distKm,  'KM',   accentOrange)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildTelemetryCard('TRIP TIME', Icons.access_time,          timeStr, 'MIN',  const Color(0xFFFFB347))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildTelemetryCard('WAITING',   Icons.pause_circle_outline, waitStr, 'MIN',  const Color(0xFFFF5722))),
-        const SizedBox(width: 16),
-        Expanded(child: _buildTelemetryCard('SPEED',     Icons.speed,                speed,   'KM/H', lightAccentOrange)),
+        Expanded(child: _buildTelemetryCard('DISTANCE',  Icons.navigation,          distKm,  'KM',   accentOrange, isShallow, hScale)),
+        SizedBox(width: isShallow ? 8 : 16),
+        Expanded(child: _buildTelemetryCard('TRIP TIME', Icons.access_time,          timeStr, 'MIN',  const Color(0xFFFFB347), isShallow, hScale)),
+        SizedBox(width: isShallow ? 8 : 16),
+        Expanded(child: _buildTelemetryCard('WAITING',   Icons.pause_circle_outline, waitStr, 'MIN',  const Color(0xFFFF5722), isShallow, hScale)),
+        SizedBox(width: isShallow ? 8 : 16),
+        Expanded(child: _buildTelemetryCard('SPEED',     Icons.speed,                speed,   'KM/H', lightAccentOrange, isShallow, hScale)),
       ],
     );
   }
 
-  Widget _buildTelemetryCard(String title, IconData icon, String value, String unit, Color iconColor) {
+  Widget _buildTelemetryCard(String title, IconData icon, String value, String unit, Color iconColor, bool isShallow, double hScale) {
     // Separate integers and decimals if present for dynamic sizing
     String vMain = value;
     String vSub = "";
@@ -884,10 +974,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isShallow ? 14 : 24),
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(isShallow ? 12 : 20),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -906,11 +996,11 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 2.0,
+                  fontSize: isShallow ? 8 : 12,
+                  letterSpacing: isShallow ? 1.0 : 2.0,
                 ),
               ),
             ],
@@ -923,7 +1013,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                 vMain,
                 style: TextStyle(
                   color: lightAccentOrange,
-                  fontSize: 56,
+                  fontSize: (56 * hScale).clamp(32.0, 64.0),
                   fontWeight: FontWeight.w900,
                   height: 1.0,
                 ),
@@ -933,7 +1023,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                   vSub,
                   style: TextStyle(
                     color: lightAccentOrange,
-                    fontSize: 32,
+                    fontSize: (32 * hScale).clamp(20.0, 40.0),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -956,35 +1046,35 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(bool isShallow) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isShallow ? 8 : 12),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: borderColor)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(Icons.gps_fixed, color: textFaint, size: 10),
-              SizedBox(width: 6),
-              Text('GPS SIGNAL: STRONG', style: TextStyle(color: textFaint, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              SizedBox(width: 16),
-              Icon(Icons.wifi, color: textFaint, size: 10),
-              SizedBox(width: 6),
-              Text('NETWORK: 5G ACTIVE', style: TextStyle(color: textFaint, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              const Icon(Icons.gps_fixed, color: textFaint, size: 10),
+              const SizedBox(width: 6),
+              Text('GPS SIGNAL: STRONG', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              const SizedBox(width: 16),
+              const Icon(Icons.wifi, color: textFaint, size: 10),
+              const SizedBox(width: 6),
+              Text('NETWORK: 5G ACTIVE', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
             ],
           ),
-          Text('© 2026 POWERTAXI METRO • SECURE ENCRYPTED SESSION', style: TextStyle(color: textFaint, fontSize: 8, letterSpacing: 1.0)),
+          Text('© 2026 POWERTAXI METRO • SECURE ENCRYPTED SESSION', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, letterSpacing: 1.0)),
         ],
       ),
     );
   }
 
-  Widget _buildPill(IconData icon, String text, {bool isActive = false}) {
+  Widget _buildPill(IconData icon, String text, {bool isActive = false, bool isShallow = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: isShallow ? 12 : 16, vertical: isShallow ? 6 : 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1E222A),
         border: Border.all(color: borderColor),
@@ -993,15 +1083,31 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: isActive ? accentOrange : textFaint, size: 12),
+          Icon(icon, color: isActive ? accentOrange : textFaint, size: isShallow ? 10 : 12),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(color: textFaint, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+          Text(text, style: TextStyle(color: textFaint, fontSize: isShallow ? 8 : 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
         ],
       ),
     );
   }
 
   void _showStartTripConfirmation(BuildContext context) {
+    void doConfirm() {
+      _clearDialogCallbacks();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context, rootNavigator: true).pop();
+        context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
+      });
+    }
+    void doCancel() {
+      _clearDialogCallbacks();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      });
+    }
+
+    _registerDialogCallbacks(doConfirm, doCancel);
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withAlpha(204),
@@ -1016,14 +1122,36 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
           onConfirm: () {
             context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
           },
+          onCancel: doCancel,
         );
       },
-    );
+    ).then((_) => _clearDialogCallbacks());
   }
 
   void _showDiscountDialog(BuildContext parentContext) {
     String selectedTitle = 'REGULAR';
     double selectedRate = 0.0;
+
+    void doConfirm() {
+      _clearDialogCallbacks();
+      // Use postFrameCallback to avoid calling Navigator from within a frame
+      // callback (EventChannel), which causes the overlay error.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(parentContext, rootNavigator: true).pop();
+        parentContext.read<TaxiMeterBloc>().add(StopRide(
+          discountRate: selectedRate,
+          discountType: selectedTitle,
+        ));
+      });
+    }
+    void doCancel() {
+      _clearDialogCallbacks();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(parentContext, rootNavigator: true).pop();
+      });
+    }
+
+    _registerDialogCallbacks(doConfirm, doCancel);
 
     final List<Map<String, dynamic>> discountOptions = [
       {
@@ -1058,11 +1186,17 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setState) {
+            // NOTE: _registerDialogCallbacks is NOT called here to avoid
+            // triggering parent rebuilds on every discount selection tap.
+            // Dart closures already capture selectedRate/selectedTitle by
+            // reference, so doConfirm always reads the latest values.
             return Dialog(
               backgroundColor: Colors.transparent, // Using container for custom styling
               insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Container(
                 width: 550,
+                // Cap height so it never exceeds the Howen AT5's 600px display
+                constraints: const BoxConstraints(maxHeight: 560),
                 decoration: BoxDecoration(
                   color: panelColor,
                   borderRadius: BorderRadius.circular(24),
@@ -1080,9 +1214,9 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Header Section
+                      // ── Header (compact) ────────────────────────────────
                       Container(
-                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                         decoration: BoxDecoration(
                           color: accentOrange.withAlpha(20),
                           border: const Border(
@@ -1092,14 +1226,14 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: accentOrange.withAlpha(40),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.confirmation_num_outlined, color: accentOrange, size: 28),
+                              child: const Icon(Icons.confirmation_num_outlined, color: accentOrange, size: 22),
                             ),
-                            const SizedBox(width: 20),
+                            const SizedBox(width: 16),
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -1107,14 +1241,14 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                                   "TRIP DISCOUNT",
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 20,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.1,
                                   ),
                                 ),
                                 Text(
                                   "Select applicable discount for this ride",
-                                  style: TextStyle(color: textFaint, fontSize: 13),
+                                  style: TextStyle(color: textFaint, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -1122,117 +1256,139 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         ),
                       ),
 
-                      // Selection Area
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
-                        child: Column(
-                          children: [
-                            ...discountOptions.map((option) {
-                              bool isSelected = selectedTitle == option['title'];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 14.0),
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      selectedTitle = option['title'];
-                                      selectedRate = option['rate'];
-                                    });
-                                  },
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.all(18),
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? accentOrange.withAlpha(25) : Colors.black.withAlpha(30),
-                                      border: Border.all(
-                                        color: isSelected ? accentOrange : borderColor,
-                                        width: isSelected ? 2.5 : 1,
+                      // ── Scrollable Selection Area ───────────────────────
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...discountOptions.map((option) {
+                                bool isSelected = selectedTitle == option['title'];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10.0),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        selectedTitle = option['title'];
+                                        selectedRate = option['rate'];
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? accentOrange.withAlpha(25) : Colors.black.withAlpha(30),
+                                        border: Border.all(
+                                          color: isSelected ? accentOrange : borderColor,
+                                          width: isSelected ? 2.0 : 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: accentOrange.withAlpha(40),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 3),
+                                                )
+                                              ]
+                                            : [],
                                       ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: isSelected
-                                          ? [
-                                              BoxShadow(
-                                                color: accentOrange.withAlpha(40),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 4),
-                                              )
-                                            ]
-                                          : [],
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: isSelected ? accentOrange : panelColor,
-                                            borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(
-                                              color: isSelected ? accentOrange : borderColor,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? accentOrange : panelColor,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: isSelected ? accentOrange : borderColor,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              option['icon'],
+                                              color: isSelected ? Colors.black : textFaint,
+                                              size: 18,
                                             ),
                                           ),
-                                          child: Icon(
-                                            option['icon'],
-                                            color: isSelected ? Colors.black : textFaint,
-                                            size: 22,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 18),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                option['title'],
-                                                style: TextStyle(
-                                                  color: isSelected ? Colors.white : Colors.white70,
-                                                  fontSize: 17,
-                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  option['title'],
+                                                  style: TextStyle(
+                                                    color: isSelected ? Colors.white : Colors.white70,
+                                                    fontSize: 14,
+                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                option['subtitle'],
-                                                style: TextStyle(
-                                                  color: isSelected ? Colors.white.withAlpha(140) : textFaint,
-                                                  fontSize: 13,
+                                                Text(
+                                                  option['subtitle'],
+                                                  style: TextStyle(
+                                                    color: isSelected ? Colors.white.withAlpha(140) : textFaint,
+                                                    fontSize: 11,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        if (isSelected)
-                                          const Icon(Icons.check_circle, color: accentOrange, size: 24),
-                                      ],
+                                          if (isSelected)
+                                            const Icon(Icons.check_circle, color: accentOrange, size: 20),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
 
-                            const SizedBox(height: 16),
-
-                            // Action Buttons
+                      // ── Sticky Footer: key hints + action buttons ───────
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                        decoration: const BoxDecoration(
+                          border: Border(top: BorderSide(color: borderColor)),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Key hint row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildKeyHint('F4', 'Confirm', accentOrange),
+                                const SizedBox(width: 16),
+                                _buildKeyHint('F6', 'Cancel', textFaint),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            // Action buttons
                             Row(
                               children: [
                                 Expanded(
                                   child: SizedBox(
-                                    height: 56,
+                                    height: 48,
                                     child: OutlinedButton(
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: textFaint,
                                         side: const BorderSide(color: borderColor),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => Navigator.pop(dialogContext),
-                                      child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      onPressed: doCancel,
+                                      child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   flex: 2,
                                   child: SizedBox(
-                                    height: 56,
+                                    height: 48,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.redAccent,
@@ -1240,16 +1396,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                         elevation: 0,
                                       ),
-                                      onPressed: () {
-                                        Navigator.pop(dialogContext);
-                                        parentContext.read<TaxiMeterBloc>().add(StopRide(
-                                          discountRate: selectedRate,
-                                          discountType: selectedTitle,
-                                        ));
-                                      },
+                                      onPressed: doConfirm,
                                       child: const Text(
                                         "PROCEED TO FINALIZATION",
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                   ),
@@ -1279,6 +1429,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
     required String confirmLabel,
     required Color confirmColor,
     required VoidCallback onConfirm,
+    VoidCallback? onCancel,
   }) {
     return Dialog(
       backgroundColor: panelColor,
@@ -1314,6 +1465,16 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
               style: const TextStyle(color: textFaint, fontSize: 16, height: 1.5),
             ),
             const SizedBox(height: 32),
+            // Button hint row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildKeyHint('F4', confirmLabel, confirmColor),
+                const SizedBox(width: 16),
+                _buildKeyHint('F6', 'Cancel', textFaint),
+              ],
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -1324,7 +1485,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
                         side: const BorderSide(color: borderColor),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: onCancel ?? () => Navigator.pop(context),
                       child: const Text('CANCEL', style: TextStyle(color: textFaint, fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -1355,6 +1516,37 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Small badge shown in dialogs to hint at hardware button shortcuts.
+  Widget _buildKeyHint(String key, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withAlpha(30),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withAlpha(120)),
+          ),
+          child: Text(
+            key,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '= $label',
+          style: TextStyle(color: color.withAlpha(180), fontSize: 11),
+        ),
+      ],
     );
   }
 }
@@ -1434,6 +1626,7 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    final isShallow = screenSize.height < 700;
     final cardWidth = (screenSize.width * 0.46).clamp(360.0, 560.0);
     final cardHeight = (screenSize.height * 0.80).clamp(400.0, 680.0);
 
@@ -1461,7 +1654,7 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
               children: [
                 _buildHeader(context),
                 if (!_loading && _error == null) _buildSummaryCard(),
-                Expanded(child: _buildBody()),
+                Expanded(child: _buildBody(isShallow)),
               ],
             ),
           ),
@@ -1557,7 +1750,7 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isShallow) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: _orange));
     }
@@ -1596,7 +1789,7 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _rides.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => SizedBox(height: isShallow ? 4 : 8),
       itemBuilder: (context, index) => _buildTripRow(_rides[index]),
     );
   }

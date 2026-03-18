@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:powertaxi/screen/login/log_in_screen.dart';
 import 'package:powertaxi/screen/admin/admin_dashboard_screen.dart';
@@ -85,11 +86,15 @@ class EzBusTaxiApp extends StatelessWidget {
           primarySwatch: Colors.orange,
           scaffoldBackgroundColor: Colors.black,
         ),
-        initialRoute: '/meter', // Always load dashboard, lock features if not logged in
+        initialRoute: kIsWeb 
+            ? (isLoggedIn && userRole == 'admin' ? '/admin' : '/login') 
+            : '/meter', // Web defaults to admin login, terminal defaults to meter
         routes: {
           '/login': (context) => const LoginScreen(),
           '/admin': (context) => const AdminDashboardScreen(),
-          '/meter': (context) => FutureBuilder<SharedPreferences>(
+          '/meter': (context) => kIsWeb 
+              ? (isLoggedIn && userRole == 'admin' ? const AdminDashboardScreen() : const LoginScreen())
+              : FutureBuilder<SharedPreferences>(
             future: SharedPreferences.getInstance(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
