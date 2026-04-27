@@ -3,6 +3,7 @@ import '../models/company_model.dart';
 import '../models/device_model.dart';
 import '../models/app_user_model.dart';
 import '../models/ride_record.dart';
+import '../core/hash_helper.dart';
 
 class AdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -17,12 +18,14 @@ class AdminService {
             snapshot.docs.map((doc) => Company.fromFirestore(doc)).toList());
   }
 
-  Future<void> addCompany(String name, String tin) async {
-    final cleanName = name.trim();
-    final cleanTin = tin.trim();
+  Future<void> addCompany(String name, String tin, {double? baseFare, double? ratePerKm, double? ratePerMinute, double? distanceMultiplier}) async {
     await _firestore.collection('companies').add({
-      'name': cleanName,
-      'tin': cleanTin,
+      'name': name.trim(),
+      'tin': tin.trim(),
+      'baseFare': baseFare ?? 40.0,
+      'ratePerKm': ratePerKm ?? 13.50,
+      'ratePerMinute': ratePerMinute ?? 2.0,
+      'distanceMultiplier': distanceMultiplier ?? 1.0,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -41,10 +44,12 @@ class AdminService {
   }
 
   // Devices
-  Stream<List<Device>> getDevicesStream({String? companyName}) {
+  Stream<List<Device>> getDevicesStream({String? companyName, String? companyId}) {
     Query query = _firestore.collection('devices');
     
-    if (companyName != null && companyName.isNotEmpty && companyName != 'SELECT COMPANY') {
+    if (companyId != null && companyId.isNotEmpty) {
+      query = query.where('companyId', isEqualTo: companyId);
+    } else if (companyName != null && companyName.isNotEmpty && companyName != 'SELECT COMPANY') {
       query = query.where('company', isEqualTo: companyName);
     }
     
@@ -70,9 +75,10 @@ class AdminService {
     });
 
     // 2. Automatically create a user entry so the device can log in
+    // Password is stored as a SHA-256 hash, never plain text.
     await _firestore.collection('users').doc(cleanSerial).set({
       'email': cleanSerial,
-      'password': '123', // Default password
+      'password': HashHelper.sha256('123'), // Default password (hashed)
       'role': 'device',
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -111,7 +117,27 @@ class AdminService {
 
   Future<void> addUser(AppUser user) async {
     if (user.email.isEmpty) throw 'Email cannot be empty';
-    await _firestore.collection('users').add(user.toMap());
+    // Hash the password and PIN before storing — never store plain text.
+    final hashedPassword = user.password.isNotEmpty
+        ? HashHelper.sha256(user.password)
+        : user.password;
+    final hashedPin = (user.pin != null && user.pin!.isNotEmpty)
+        ? HashHelper.sha256(user.pin!)
+        : user.pin;
+    final secureUser = AppUser(
+      id: user.id,
+      email: user.email,
+      password: hashedPassword,
+      role: user.role,
+      accessibleCompanies: user.accessibleCompanies,
+      name: user.name,
+      language: user.language,
+      pin: hashedPin,
+      appAccess: user.appAccess,
+      lastConnection: user.lastConnection,
+      createdAt: user.createdAt,
+    );
+    await _firestore.collection('users').add(secureUser.toMap());
   }
 
   Future<void> updateUser(AppUser user) async {
@@ -124,13 +150,23 @@ class AdminService {
   }
 
   // Dispatch
-  Stream<List<RideRecord>> getActiveRidesStream() {
-    return _firestore
+  Stream<List<RideRecord>> getActiveRidesStream({String? companyId}) {
+    Query query = _firestore
         .collection('rides')
-        .where('status', isEqualTo: 'running')
+        .where('status', isEqualTo: 'running');
+
+    // Scope to the selected company so operators cannot see other companies' rides.
+    if (companyId != null && companyId.isNotEmpty) {
+      query = query.where('companyId', isEqualTo: companyId);
+    }
+
+    return query
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => RideRecord.fromMap(doc.data(), doc.id))
+            .map((doc) => RideRecord.fromMap(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ))
             .toList());
   }
 }

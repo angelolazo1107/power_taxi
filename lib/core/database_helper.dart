@@ -32,7 +32,7 @@ class LocalDatabaseHelper {
 
     return await openDatabase(
       path, 
-      version: 2, 
+      version: 3, 
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -45,6 +45,7 @@ class LocalDatabaseHelper {
       CREATE TABLE rides (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         rideId TEXT NOT NULL,
+        companyId TEXT,
         fare REAL NOT NULL,
         distance REAL NOT NULL,
         date TEXT NOT NULL,
@@ -73,6 +74,13 @@ class LocalDatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 3) {
+      // Add companyId column to store which company a ride belongs to.
+      // This is required for correct offline-sync back to Firestore.
+      await db.execute(
+        'ALTER TABLE rides ADD COLUMN companyId TEXT;',
+      );
+    }
   }
 
   // ====================================================================
@@ -84,11 +92,13 @@ class LocalDatabaseHelper {
     required String rideId,
     required double fare,
     required double distance,
+    String? companyId, // stored so it survives offline sync
   }) async {
     final db = await instance.database;
 
     await db.insert('rides', {
       'rideId': rideId,
+      'companyId': companyId,
       'fare': fare,
       'distance': distance,
       'date': DateTime.now().toIso8601String(),

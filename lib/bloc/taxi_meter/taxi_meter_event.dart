@@ -124,6 +124,7 @@ class UpdateDriverInfo extends TaxiMeterEvent {
   final String? plateNo;
   final String? bodyNo;
   final String? companyName;
+  final String? companyId;
   final String? ptuNo;
   final String? accreditationNo;
   final String? serialNo;
@@ -136,6 +137,7 @@ class UpdateDriverInfo extends TaxiMeterEvent {
     this.plateNo,
     this.bodyNo,
     this.companyName,
+    this.companyId,
     this.ptuNo,
     this.accreditationNo,
     this.serialNo,
@@ -150,10 +152,19 @@ class UpdateDriverInfo extends TaxiMeterEvent {
     plateNo,
     bodyNo,
     companyName,
+    companyId,
     ptuNo,
     accreditationNo,
     serialNo,
     tin,
     minNo,
   ];
+}
+
+class SaveCalibration extends TaxiMeterEvent {
+  final double kFactor;
+  const SaveCalibration(this.kFactor);
+
+  @override
+  List<Object?> get props => [kFactor];
 }

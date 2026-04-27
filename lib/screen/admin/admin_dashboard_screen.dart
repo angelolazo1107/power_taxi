@@ -320,6 +320,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return DispatchTab(
           adminService: _adminService,
           companyName: _selectedCompanyName,
+          companyId: _selectedCompanyId,
         );
       case 'Devices':
         return DeviceManagementTab(

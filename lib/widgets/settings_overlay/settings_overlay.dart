@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_event.dart';
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
+import 'package:powertaxi/core/hardware_meter_service.dart';
 
 // ─────────────────────────────────────────────
 //  DESIGN TOKENS
@@ -555,8 +556,12 @@ Widget _buildProfileForm(TaxiMeterState state) {
           ),
           const SizedBox(width: 12),
           Expanded(
-              child: _inputField(
-                  'C.C. BODY NO.', state.bodyNo ?? 'NOT SET', Icons.tag)),
+            child: _inputField(
+              'C.C. BODY NO.',
+              state.bodyNo ?? 'NOT SET',
+              Icons.tag,
+            ),
+          ),
         ],
       ),
       const SizedBox(height: 20),
@@ -611,7 +616,6 @@ Widget _buildProfileForm(TaxiMeterState state) {
   );
 }
 
-
 // ─────────────────────────────────────────────
 //  RECEIPT TAB
 // ─────────────────────────────────────────────
@@ -623,11 +627,7 @@ Widget _buildReceiptForm(TaxiMeterState state) {
       const SizedBox(height: 14),
       _inputField('COMPANY TIN', state.tin ?? 'NOT SET', Icons.numbers),
       const SizedBox(height: 10),
-      _inputField(
-        'ADDRESS',
-        '---',
-        Icons.location_on_outlined,
-      ),
+      _inputField('ADDRESS', '---', Icons.location_on_outlined),
       const SizedBox(height: 10),
       _inputField('TELEPHONE', '---', Icons.phone_outlined),
       const SizedBox(height: 16),
@@ -764,12 +764,12 @@ Widget _buildReportsForm(BuildContext context, TaxiMeterState state) {
         tagColor: state.remittancePerformed ? _orange : Colors.grey,
         onTap: state.remittancePerformed
             ? () => showDialog(
-                  context: context,
-                  builder: (ctx) => BlocProvider.value(
-                    value: context.read<TaxiMeterBloc>(),
-                    child: _XReadingDialog(ctx: ctx),
-                  ),
-                )
+                context: context,
+                builder: (ctx) => BlocProvider.value(
+                  value: context.read<TaxiMeterBloc>(),
+                  child: _XReadingDialog(ctx: ctx),
+                ),
+              )
             : () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -909,11 +909,7 @@ class _XReadingDialog extends StatelessWidget {
               color: _orange.withAlpha(20),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.print_outlined,
-              color: _orange,
-              size: 18,
-            ),
+            child: const Icon(Icons.print_outlined, color: _orange, size: 18),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -1152,10 +1148,10 @@ Widget _buildSystemForm(BuildContext context, TaxiMeterState state) {
           Expanded(
             child: _actionTile(
               title: 'CALIBRATE',
-              subtitle: 'Reset meter readings',
+              subtitle: 'Drive 1km to set K-Factor',
               icon: Icons.tune,
               accent: _orange,
-              onTap: () {},
+              onTap: () => _showCalibrationDialog(context),
             ),
           ),
           const SizedBox(width: 10),
@@ -1404,11 +1400,7 @@ class _RemittanceDialog extends StatelessWidget {
               color: _gold.withAlpha(20),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.payments_outlined,
-              color: _gold,
-              size: 18,
-            ),
+            child: const Icon(Icons.payments_outlined, color: _gold, size: 18),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -1548,47 +1540,77 @@ class AppActivityLogDialogState extends State<_ActivityLogDialog> {
           children: [
             const Text(
               'Select Date/Time Range for logs:',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 16),
-            const Text("FROM:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            const Text(
+              "FROM:",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _selectDate(context, true),
-                    child: Text(_formatDate(_fromDate), style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  )
+                    child: Text(
+                      _formatDate(_fromDate),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _selectTime(context, true),
-                    child: Text(_fromTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  )
-                )
-              ]
+                    child: Text(
+                      _fromTime.format(context),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            const Text("TO:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            const Text(
+              "TO:",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _selectDate(context, false),
-                    child: Text(_formatDate(_toDate), style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  )
+                    child: Text(
+                      _formatDate(_toDate),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _selectTime(context, false),
-                    child: Text(_toTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  )
-                )
-              ]
+                    child: Text(
+                      _toTime.format(context),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1596,19 +1618,42 @@ class AppActivityLogDialogState extends State<_ActivityLogDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(widget.ctx),
-          child: const Text('CANCEL', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          child: const Text(
+            'CANCEL',
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFFD700),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
           onPressed: () {
-            DateTime start = DateTime(_fromDate.year, _fromDate.month, _fromDate.day, _fromTime.hour, _fromTime.minute);
-            DateTime end = DateTime(_toDate.year, _toDate.month, _toDate.day, _toTime.hour, _toTime.minute, 59);
+            DateTime start = DateTime(
+              _fromDate.year,
+              _fromDate.month,
+              _fromDate.day,
+              _fromTime.hour,
+              _fromTime.minute,
+            );
+            DateTime end = DateTime(
+              _toDate.year,
+              _toDate.month,
+              _toDate.day,
+              _toTime.hour,
+              _toTime.minute,
+              59,
+            );
 
             Navigator.pop(widget.ctx);
-            context.read<TaxiMeterBloc>().add(PrintActivityLog(from: start, to: end));
+            context.read<TaxiMeterBloc>().add(
+              PrintActivityLog(from: start, to: end),
+            );
           },
           icon: const Icon(Icons.print, size: 16, color: Colors.black),
           label: const Text(
@@ -1617,6 +1662,243 @@ class AppActivityLogDialogState extends State<_ActivityLogDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── CALIBRATION DIALOG ──────────────────────────────────────────────────────
+
+void _showCalibrationDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      // Pass the original context to the dialog so it can access providers
+      return _CalibrationDialog(parentContext: context);
+    },
+  );
+}
+
+class _CalibrationDialog extends StatefulWidget {
+  final BuildContext parentContext;
+
+  const _CalibrationDialog({required this.parentContext});
+
+  @override
+  State<_CalibrationDialog> createState() => _CalibrationDialogState();
+}
+
+class _CalibrationDialogState extends State<_CalibrationDialog> {
+  int? _startPulse;
+  int _currentPulse = 0;
+  bool _isRecording = false;
+  final double _knownDistanceKm = 1.0;
+  bool _shouldStopOnDispose = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initMeter();
+  }
+
+  Future<void> _initMeter() async {
+    // Use the passed parentContext to read providers
+    final bloc = widget.parentContext.read<TaxiMeterBloc>();
+    final hardwareService = widget.parentContext.read<HardwareMeterService>();
+
+    // Only start if not already running
+    if (bloc.state is! MeterRunning) {
+      await hardwareService.startHardwareMeter();
+      _shouldStopOnDispose = true;
+      debugPrint('CALIBRATION: Hardware meter started for calibration.');
+    } else {
+      debugPrint(
+        'CALIBRATION: Hardware meter already running (ride in progress).',
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_shouldStopOnDispose) {
+      widget.parentContext.read<HardwareMeterService>().stopHardwareMeter();
+      debugPrint('CALIBRATION: Hardware meter stopped after calibration.');
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hardwareService = widget.parentContext.read<HardwareMeterService>();
+    final bloc = widget.parentContext.read<TaxiMeterBloc>();
+
+    return AlertDialog(
+      backgroundColor: _bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _border),
+      ),
+      title: const Row(
+        children: [
+          Icon(Icons.tune, color: _orange),
+          SizedBox(width: 12),
+          Text(
+            'Hardware Calibration',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: StreamBuilder<int>(
+          stream: hardwareService.hardwarePulseStream,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              _currentPulse = snapshot.data!;
+            }
+
+            final int pulsesElapsed = _startPulse == null
+                ? 0
+                : (_currentPulse - _startPulse!);
+            final double calculatedK = pulsesElapsed / _knownDistanceKm;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'To calibrate, drive exactly $_knownDistanceKm KM. The system will calculate the new pulses-per-kilometer (K-Factor).',
+                  style: const TextStyle(color: _muted, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                _pulseStat(
+                  'Current Hardware Pulses',
+                  _currentPulse.toString(),
+                  Icons.sensors,
+                ),
+                const SizedBox(height: 12),
+                _pulseStat(
+                  'Initial Pulse Count',
+                  _startPulse?.toString() ?? 'Waiting to start...',
+                  Icons.flag_outlined,
+                ),
+                const SizedBox(height: 12),
+                _pulseStat(
+                  'Pulses Captured',
+                  pulsesElapsed.toString(),
+                  Icons.speed,
+                ),
+                const Divider(height: 32, color: _border),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'RESULTING K-FACTOR',
+                      style: TextStyle(
+                        color: _faint,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    Text(
+                      calculatedK > 0 ? calculatedK.toStringAsFixed(2) : '0.00',
+                      style: const TextStyle(
+                        color: _orange,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('CANCEL', style: TextStyle(color: _muted)),
+        ),
+        const Spacer(),
+        if (!_isRecording)
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white.withAlpha(20),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.play_arrow),
+            onPressed: () async {
+              final current = await hardwareService.getRawPulses();
+              setState(() {
+                _startPulse = current;
+                _isRecording = true;
+              });
+            },
+            label: const Text('START CAPTURE'),
+          )
+        else
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _orange,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.save),
+            onPressed: () {
+              final pulsesElapsed =
+                  _currentPulse - (_startPulse ?? _currentPulse);
+              final double newK = pulsesElapsed / _knownDistanceKm;
+              if (pulsesElapsed <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Error: No pulses captured. Please move the vehicle.',
+                    ),
+                  ),
+                );
+                return;
+              }
+              bloc.add(SaveCalibration(newK));
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.green.shade900,
+                  content: Text(
+                    'Success: K-Factor updated to ${newK.toStringAsFixed(2)} pulses/km',
+                  ),
+                ),
+              );
+            },
+            label: const Text('STOP & SAVE'),
+          ),
+      ],
+    );
+  }
+
+  Widget _pulseStat(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: _faint),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(color: _muted, fontSize: 13)),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -51,6 +51,22 @@ class _LoginFormState extends State<LoginForm> {
     super.dispose();
   }
 
+  void _handleSubmit() {
+    if (widget.isLoading) return;
+    if (kIsWeb) {
+      widget.onLogin(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+    } else {
+      widget.onDriverLogin?.call(
+        _nameController.text.trim(),
+        _pinController.text.trim(),
+        null,
+      );
+    }
+  }
+
   Future<void> _showManualSerialDialog(BuildContext context) async {
     final controller = TextEditingController();
     bool isSaving = false;
@@ -61,8 +77,13 @@ class _LoginFormState extends State<LoginForm> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: const Color(0xFF111418),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Change Device ID', style: TextStyle(color: Colors.white)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Change Device ID',
+            style: TextStyle(color: Colors.white),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +115,10 @@ class _LoginFormState extends State<LoginForm> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+              child: const Text(
+                'CANCEL',
+                style: TextStyle(color: Colors.white54),
+              ),
             ),
             ElevatedButton(
               onPressed: isSaving
@@ -103,21 +127,30 @@ class _LoginFormState extends State<LoginForm> {
                       setState(() => isSaving = true);
                       try {
                         final authService = AuthService();
-                        await authService.validateAndSetSerialNumber(controller.text);
+                        await authService.validateAndSetSerialNumber(
+                          controller.text,
+                        );
                         await _loadDeviceId(); // Refresh the displayed ID
                         if (context.mounted) Navigator.pop(ctx);
                       } catch (e) {
                         setState(() => isSaving = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
                       }
                     },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: isSaving
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('SAVE', style: TextStyle(color: Colors.black)),
             ),
           ],
@@ -135,6 +168,8 @@ class _LoginFormState extends State<LoginForm> {
             TextField(
               controller: _emailController,
               style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _handleSubmit(),
               decoration: InputDecoration(
                 labelText: 'Email Address',
                 labelStyle: const TextStyle(color: Colors.white70),
@@ -151,6 +186,8 @@ class _LoginFormState extends State<LoginForm> {
               controller: _passwordController,
               obscureText: true,
               style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleSubmit(),
               decoration: InputDecoration(
                 labelText: 'Password',
                 labelStyle: const TextStyle(color: Colors.white70),
@@ -166,6 +203,8 @@ class _LoginFormState extends State<LoginForm> {
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white),
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _handleSubmit(),
               decoration: InputDecoration(
                 labelText: 'Driver Name',
                 labelStyle: const TextStyle(color: Colors.white70),
@@ -182,6 +221,8 @@ class _LoginFormState extends State<LoginForm> {
               controller: _pinController,
               obscureText: true,
               textAlign: TextAlign.center,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleSubmit(),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 24,
@@ -240,22 +281,7 @@ class _LoginFormState extends State<LoginForm> {
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: widget.isLoading
-                  ? null
-                  : () {
-                      if (kIsWeb) {
-                        widget.onLogin(
-                          _emailController.text,
-                          _passwordController.text,
-                        );
-                      } else {
-                        widget.onDriverLogin?.call(
-                          _nameController.text,
-                          _pinController.text,
-                          null,
-                        );
-                      }
-                    },
+              onPressed: widget.isLoading ? null : _handleSubmit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.black,
@@ -284,8 +310,187 @@ class _LoginFormState extends State<LoginForm> {
             ),
           ),
           const SizedBox(height: 20),
+          // DEBUG BUTTON: Show available drivers
+          if (!kIsWeb) ...[
+            TextButton.icon(
+              onPressed: _showDebugInfo,
+              icon: const Icon(Icons.bug_report, color: Colors.grey),
+              label: const Text(
+                'DEBUG: Show Available Drivers',
+                style: TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+            ),
+          ],
+          // DEBUG BUTTON: Show available admins (WEB ONLY)
+          if (kIsWeb) ...[
+            TextButton.icon(
+              onPressed: _showDebugAdmins,
+              icon: const Icon(Icons.bug_report, color: Colors.grey),
+              label: const Text(
+                'DEBUG: Show Available Admins',
+                style: TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _showDebugInfo() async {
+    final authService = AuthService();
+    try {
+      final drivers = await authService.getAvailableDriversForDebug();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF111418),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Available Drivers (Debug)',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: drivers.length,
+              itemBuilder: (context, index) {
+                final driver = drivers[index];
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Name: ${driver['name']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'PIN Hash: ${driver['has_pin'] ? driver['pin'] : 'MISSING'}',
+                        style: TextStyle(
+                          color: driver['has_pin'] ? Colors.green : Colors.red,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      Text(
+                        'Email: ${driver['email']}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _showDebugAdmins() async {
+    final authService = AuthService();
+    try {
+      final admins = await authService.getAvailableAdminsForDebug();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF111418),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Available Admins/Operators (Debug)',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: admins.length,
+              itemBuilder: (context, index) {
+                final admin = admins[index];
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Email: ${admin['email']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        'Role: ${admin['role']}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        'Password: ${admin['password']}',
+                        style: TextStyle(
+                          color: admin['has_password']
+                              ? Colors.green
+                              : Colors.red,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 }

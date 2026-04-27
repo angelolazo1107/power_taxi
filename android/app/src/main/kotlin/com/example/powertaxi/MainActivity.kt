@@ -8,6 +8,8 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.Timer
 import kotlin.concurrent.timerTask
+import com.android.howen.HowenManager
+import android.os.Bundle
 
 class MainActivity : FlutterActivity() {
 
@@ -17,8 +19,12 @@ class MainActivity : FlutterActivity() {
 
     private var eventSink: EventChannel.EventSink? = null
     private var buttonEventSink: EventChannel.EventSink? = null
-    private var pulseTimer: Timer? = null
-    private var simulatedDistance = 0.0
+    
+    private var howenManager: HowenManager? = null
+    private var lastTotalPulse: Long = 0L
+    private var startDistancePulse: Long = 0L
+    private var isMeterRunning = false
+    private var pulsesPerKm = 500.0 // Default K-Factor
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -32,21 +38,30 @@ class MainActivity : FlutterActivity() {
                 }
                 override fun onCancel(arguments: Any?) {
                     eventSink = null
-                    stopSimulatedHardware()
+                    stopHardwareMeter()
                 }
             })
 
         // ── 2. Commands (start / stop meter, print) ───────────────────────────
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, COMMAND_CHANNEL)
             .setMethodCallHandler { call, result ->
+                initHowenManager() // Ensure manager is ready
                 when (call.method) {
                     "startMeter" -> {
-                        simulatedDistance = 0.0
-                        startSimulatedHardware()
+                        // Capture starting pulse for relative distance
+                        // In a real scenario, we might want to get the latest total pulse count first.
+                        // But since it's a stream, we'll wait for the next callback.
+                        startHardwareMeter()
                         result.success(true)
                     }
                     "stopMeter" -> {
-                        stopSimulatedHardware()
+                        stopHardwareMeter()
+                        result.success(true)
+                    }
+                    "updateCalibration" -> {
+                        val kFactor = call.argument<Double>("pulsesPerKm") ?: 500.0
+                        pulsesPerKm = kFactor
+                        Log.d("HowenHardware", "Calibration updated: K=$pulsesPerKm")
                         result.success(true)
                     }
                     "printReceipt" -> {
@@ -54,6 +69,9 @@ class MainActivity : FlutterActivity() {
                         val distance = call.argument<Double>("distance") ?: 0.0
                         Log.d("HowenPrint", "PRINT — fare=$$fare  dist=${distance}m")
                         result.success(true)
+                    }
+                    "getRawPulses" -> {
+                        result.success(lastTotalPulse)
                     }
                     else -> result.notImplemented()
                 }
@@ -105,18 +123,56 @@ class MainActivity : FlutterActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // ── Simulated hardware (distance pulses for testing) ─────────────────────
-    private fun startSimulatedHardware() {
-        pulseTimer?.cancel()
-        pulseTimer = Timer()
-        pulseTimer?.scheduleAtFixedRate(timerTask {
-            simulatedDistance += 15.0
-            activity.runOnUiThread { eventSink?.success(simulatedDistance) }
-        }, 1000, 1000)
+    // ── 4. Howen SDK Lifecycle ──────────────────────────────────────────────
+    
+    private val oimlCallback = object : HowenManager.OimlCallback {
+        override fun onOimlPluseChanged(distancePulse: Int, totalDistancePulse: Long, pulseWidth: Long) {
+            lastTotalPulse = totalDistancePulse
+            
+            if (isMeterRunning) {
+                // Howen OIML pulse is usually doubled (2 pulses per signal event)
+                // OimlActivity.java does: long Pulse = (total_pulse >> 1);
+                val relativePulses = (totalDistancePulse - startDistancePulse) / 2.0
+                val distanceMeters = (relativePulses / pulsesPerKm) * 1000.0
+                
+                Log.d("HowenHardware", "PULSE: total=$totalDistancePulse rel=$relativePulses dist=${distanceMeters}m")
+                
+                activity.runOnUiThread {
+                    val data = mapOf(
+                        "distance" to distanceMeters,
+                        "totalPulse" to totalDistancePulse
+                    )
+                    eventSink?.success(data)
+                }
+            }
+        }
+
+        override fun onOimlPowerAdcChanged(mainPower: Int, boxPower: Int) {
+            Log.d("HowenHardware", "POWER: main=$mainPower box=$boxPower")
+        }
     }
 
-    private fun stopSimulatedHardware() {
-        pulseTimer?.cancel()
-        pulseTimer = null
+    private fun startHardwareMeter() {
+        startDistancePulse = lastTotalPulse
+        isMeterRunning = true
+        Log.d("HowenHardware", "Meter STARTED at pulse: $startDistancePulse")
+    }
+
+    private fun stopHardwareMeter() {
+        isMeterRunning = false
+        Log.d("HowenHardware", "Meter STOPPED")
+    }
+
+    override fun onDestroy() {
+        howenManager?.release()
+        super.onDestroy()
+    }
+
+    private fun initHowenManager() {
+        if (howenManager == null) {
+            howenManager = HowenManager.create(this)
+            howenManager?.setOimlCallback(oimlCallback)
+            Log.d("HowenHardware", "HowenManager INITIALIZED")
+        }
     }
 }

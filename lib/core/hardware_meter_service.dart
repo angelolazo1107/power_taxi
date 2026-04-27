@@ -1,17 +1,22 @@
 import 'dart:async';
-
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
-
 import 'export_service.dart';
 
 class HardwareMeterService {
+  static const _commandChannel = MethodChannel('com.ezbus.taximeter/howen_commands');
+  static const _streamChannel = EventChannel('com.ezbus.taximeter/howen_stream');
+
   final StreamController<double> _distanceController =
       StreamController<double>.broadcast();
   Stream<double> get hardwareDistanceStream => _distanceController.stream;
 
-  StreamSubscription<Position>? _positionStream;
-  Position? _lastPosition;
+  final StreamController<int> _pulseController =
+      StreamController<int>.broadcast();
+  Stream<int> get hardwarePulseStream => _pulseController.stream;
+
+  StreamSubscription<dynamic>? _hardwareStreamSub;
   double _totalDistanceMeters = 0.0;
 
   HardwareMeterService();
@@ -337,27 +342,58 @@ class HardwareMeterService {
     ]);
   }
 
+  Future<int> getRawPulses() async {
+    try {
+      final int pulses = await _commandChannel.invokeMethod('getRawPulses');
+      return pulses;
+    } catch (e) {
+      debugPrint("Error getting raw pulses: $e");
+      return 0;
+    }
+  }
+
+  Future<void> updateCalibration(double pulsesPerKm) async {
+    try {
+      await _commandChannel.invokeMethod('updateCalibration', {
+        'pulsesPerKm': pulsesPerKm,
+      });
+    } catch (e) {
+      debugPrint("Error updating calibration: $e");
+    }
+  }
+
   Future<void> startHardwareMeter() async {
     _totalDistanceMeters = 0.0;
-    _lastPosition = null;
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
-    ).listen((Position currentPosition) {
-      if (_lastPosition != null) {
-        _totalDistanceMeters += Geolocator.distanceBetween(_lastPosition!.latitude, _lastPosition!.longitude, currentPosition.latitude, currentPosition.longitude);
+    
+    // 1. Start monitoring the stream
+    _hardwareStreamSub?.cancel();
+    _hardwareStreamSub = _streamChannel.receiveBroadcastStream().listen((data) {
+      if (data is Map) {
+        final double distance = (data['distance'] as num).toDouble();
+        final int totalPulse = (data['totalPulse'] as num).toInt();
+        
+        _totalDistanceMeters = distance;
         _distanceController.add(_totalDistanceMeters);
+        _pulseController.add(totalPulse);
       }
-      _lastPosition = currentPosition;
     });
+
+    // 2. Command the native side to start
+    try {
+      await _commandChannel.invokeMethod('startMeter');
+    } catch (e) {
+      debugPrint("Error starting hardware meter: $e");
+    }
   }
 
   Future<void> stopHardwareMeter() async {
-    await _positionStream?.cancel();
-    _positionStream = null;
-    _lastPosition = null;
+    try {
+      await _commandChannel.invokeMethod('stopMeter');
+    } catch (e) {
+      debugPrint("Error stopping hardware meter: $e");
+    }
+    await _hardwareStreamSub?.cancel();
+    _hardwareStreamSub = null;
     _totalDistanceMeters = 0.0;
   }
 }

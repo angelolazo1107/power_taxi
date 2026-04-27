@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:background="@drawable/bg_testtool"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+	<LinearLayout 
+	    android:layout_width="480dp"
+	    android:layout_height="240dp"
+	    android:gravity="center"
+	    android:layout_centerInParent="true"
+	    android:orientation="vertical" >
+
+	    <LinearLayout 
+		    android:layout_width="match_parent"
+		   	android:layout_weight="1"
+		    android:layout_height="0dp"
+		    android:orientation="horizontal" >
+		     <Button
+			 	android:id="@+id/button_Initialize_wallet"
+		        android:layout_width="0dp"
+				android:layout_weight="1"
+		        android:layout_height="match_parent"
+		        android:textSize="@dimen/rfid_textsize"
+		        android:text="@string/Initialize_wallet" />
+			 <EditText
+				android:id="@+id/edit_Initialize_wallet"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:digits="1234567890"
+				android:inputType="number"
+				android:maxLength="6"
+				android:textSize="@dimen/rfid_textsize"
+				android:layout_height="match_parent"
+			 />
+		</LinearLayout>
+
+		<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+
+			         <Button
+		        	 	android:id="@+id/button_increase_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/increase_wallet" />
+		                
+					 <EditText
+						android:id="@+id/edit_increase_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:digits="1234567890"
+						android:inputType="number"
+						android:maxLength="6"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+		</LinearLayout>
+
+		<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+			         <Button
+		        	 	android:id="@+id/button_decrease_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/decrease_wallet" />
+		                
+					 <EditText
+						android:id="@+id/edit_decrease_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:digits="1234567890"
+						android:inputType="number"
+						android:maxLength="6"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+		</LinearLayout>
+
+		<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+
+			         <Button
+		        	 	android:id="@+id/button_check_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/check_wallet" />
+					 <EditText
+						android:id="@+id/edit_check_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+		</LinearLayout>
+
+		
+		
+	</LinearLayout>
+</RelativeLayout>

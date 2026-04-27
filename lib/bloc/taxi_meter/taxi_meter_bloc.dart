@@ -22,10 +22,12 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _wasOnline = true; // track previous connectivity state
 
-  // Pricing configuration
-  final double baseFare = 50.0;
-  final double ratePerKm = 13.50;
-  final double ratePerMinute = 2.0;
+  // Pricing configuration (loaded from company calibration)
+  double baseFare = 40.0;
+  double ratePerKm = 13.50;
+  double ratePerMinute = 2.0;
+  double distanceMultiplier = 1.0;
+  double pulsesPerKm = 500.0;
 
   TaxiMeterBloc({
     required this.rideRepository,
@@ -69,6 +71,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
 
     // Driver/Device Info Update
     on<UpdateDriverInfo>(_onUpdateDriverInfo);
+    on<SaveCalibration>(_onSaveCalibration);
 
     // Start heartbeat timer immediately
     _startTimer();
@@ -104,6 +107,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   void _onUpdateDriverInfo(UpdateDriverInfo event, Emitter<TaxiMeterState> emit) {
     final driverName = event.driverName ?? state.driverName;
     final driverId = event.driverId ?? state.driverId;
+    final companyId = event.companyId ?? state.companyId;
     final plateNo = event.plateNo ?? state.plateNo;
     final bodyNo = event.bodyNo ?? state.bodyNo;
     final companyName = event.companyName ?? state.companyName;
@@ -125,6 +129,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activityLogPrinted: state.activityLogPrinted,
         driverName: driverName,
         driverId: driverId,
+        companyId: companyId,
         plateNo: plateNo,
         bodyNo: bodyNo,
         companyName: companyName,
@@ -152,6 +157,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activityLogPrinted: s.activityLogPrinted,
         driverName: driverName,
         driverId: driverId,
+        companyId: companyId,
         plateNo: plateNo,
         bodyNo: bodyNo,
         companyName: companyName,
@@ -178,6 +184,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activityLogPrinted: s.activityLogPrinted,
         driverName: driverName,
         driverId: driverId,
+        companyId: companyId,
         plateNo: plateNo,
         bodyNo: bodyNo,
         companyName: companyName,
@@ -207,6 +214,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activityLogPrinted: s.activityLogPrinted,
         driverName: driverName,
         driverId: driverId,
+        companyId: companyId,
         plateNo: plateNo,
         bodyNo: bodyNo,
         companyName: companyName,
@@ -233,8 +241,17 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
     }
   }
 
-  void _onInitializeSettings(InitializeSettings event, Emitter<TaxiMeterState> emit) {
-    _emitStateUpdate(emit, event.is80mmPrinter);
+  Future<void> _onInitializeSettings(InitializeSettings event, Emitter<TaxiMeterState> emit) async {
+    await _loadCalibrationData();
+    emit(state.copyWith(is80mmPrinter: event.is80mmPrinter));
+  }
+
+  Future<void> _onSaveCalibration(SaveCalibration event, Emitter<TaxiMeterState> emit) async {
+    pulsesPerKm = event.kFactor;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('pulses_per_km', pulsesPerKm);
+    await hardwareService.updateCalibration(pulsesPerKm);
+    add(LogActivity(action: 'CALIBRATION UPDATED: K=$pulsesPerKm', user: state.driverId ?? 'ADMIN'));
   }
 
   void _onTogglePrinterSize(TogglePrinterSize event, Emitter<TaxiMeterState> emit) async {
@@ -260,6 +277,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activeSettingsTab: s.activeSettingsTab,
         driverName: s.driverName,
         driverId: s.driverId,
+        companyId: s.companyId,
         plateNo: s.plateNo,
         bodyNo: s.bodyNo,
         companyName: s.companyName,
@@ -281,6 +299,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activeSettingsTab: s.activeSettingsTab,
         driverName: s.driverName,
         driverId: s.driverId,
+        companyId: s.companyId,
         plateNo: s.plateNo,
         bodyNo: s.bodyNo,
         companyName: s.companyName,
@@ -297,6 +316,7 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         activeSettingsTab: state.activeSettingsTab,
         driverName: state.driverName,
         driverId: state.driverId,
+        companyId: state.companyId,
         plateNo: state.plateNo,
         bodyNo: state.bodyNo,
         companyName: state.companyName,
@@ -307,6 +327,17 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
         minNo: state.minNo,
       ));
     }
+  }
+
+  Future<void> _loadCalibrationData() async {
+    final prefs = await SharedPreferences.getInstance();
+    baseFare = prefs.getDouble('baseFare') ?? 40.0;
+    ratePerKm = prefs.getDouble('ratePerKm') ?? 13.50;
+    ratePerMinute = prefs.getDouble('ratePerMinute') ?? 2.0;
+    distanceMultiplier = prefs.getDouble('distanceMultiplier') ?? 1.0;
+    pulsesPerKm = prefs.getDouble('pulses_per_km') ?? 500.0;
+    await hardwareService.updateCalibration(pulsesPerKm);
+    debugPrint('BLOC: Calibration Loaded -> Base: $baseFare, KM: $ratePerKm, pulsesPerKm: $pulsesPerKm');
   }
 
   void _onToggleSettings(ToggleSettings event, Emitter<TaxiMeterState> emit) {
@@ -492,7 +523,8 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
       final savedDistance = prefs.getDouble('accumulated_distance') ?? 0.0;
       final startTime = DateTime.parse(startTimeStr);
       final elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
-      final restoredFare = baseFare + ((savedDistance / 1000) * ratePerKm);
+    await _loadCalibrationData();
+    final restoredFare = baseFare + ((savedDistance / 1000) * ratePerKm);
       emit(MeterRunning(
         fare: restoredFare,
         elapsedSeconds: elapsedSeconds,
@@ -516,7 +548,11 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
   }
 
   Future<void> _onStartRide(StartRide event, Emitter<TaxiMeterState> emit) async {
-    final generatedRideId = await rideRepository.startRide(event.driverId);
+    final String driverId = event.driverId;
+    final String companyId = state.companyId ?? 'UNKNOWN_COMPANY';
+    
+    await _loadCalibrationData();
+    final generatedRideId = await rideRepository.startRide(driverId, companyId);
     await hardwareService.startHardwareMeter();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('active_ride_id', generatedRideId);
@@ -604,17 +640,19 @@ class TaxiMeterBloc extends Bloc<TaxiMeterEvent, TaxiMeterState> {
 
   void _onHardwareDistanceUpdated(HardwareDistanceUpdated event, Emitter<TaxiMeterState> emit) async {
     if (state is MeterRunning) {
-      final newDistance = event.newDistanceMeters;
+      final double rawDistance = event.newDistanceMeters;
+      final double calibratedDistance = rawDistance * distanceMultiplier;
+      
       double currentFare = state.fare;
       int previousKm = (state.distanceMeters / 1000).floor();
-      int currentKm = (newDistance / 1000).floor();
+      int currentKm = (calibratedDistance / 1000).floor();
       if (currentKm > previousKm) currentFare += ((currentKm - previousKm) * ratePerKm);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('accumulated_distance', newDistance);
+      await prefs.setDouble('accumulated_distance', calibratedDistance);
       emit(MeterRunning(
         fare: currentFare,
         elapsedSeconds: state.elapsedSeconds,
-        distanceMeters: newDistance,
+        distanceMeters: calibratedDistance,
         rideId: state.rideId,
         is80mmPrinter: state.is80mmPrinter,
         driverName: state.driverName,

@@ -24,13 +24,14 @@ class FirebaseRideRepository implements RideRepository {
   }
 
   @override
-  Future<String> startRide(String driverId) async {
+  Future<String> startRide(String driverId, String companyId) async {
     // 1. Generate ID synchronously (Works instantly without internet!)
     final docRef = _firestore.collection(_collectionPath).doc();
     final rideId = docRef.id;
 
     final record = RideRecord(
       driverId: driverId,
+      companyId: companyId,
       startTime: DateTime.now(),
       distanceMeters: 0.0,
       totalFare: 0.0,
@@ -73,13 +74,15 @@ class FirebaseRideRepository implements RideRepository {
   Future<void> completeRide(
     String rideId,
     double finalFare,
-    double finalDistance,
-  ) async {
+    double finalDistance, {
+    String? companyId, // Added so companyId survives offline sync
+  }) async {
     // 1. INSTANTLY save to the local SQLite vault (is_synced = 0)
     await _localDb.saveRideLocally(
       rideId: rideId,
       fare: finalFare,
       distance: finalDistance,
+      companyId: companyId,
     );
 
     // 2. Try to upload to Firestore
@@ -164,6 +167,7 @@ class FirebaseRideRepository implements RideRepository {
       String rId = ride['rideId'];
       double rFare = ride['fare'];
       double rDist = ride['distance'];
+      String? rCompanyId = ride['companyId']; // Recovered from local storage
 
       try {
         // Use set with merge in case the document was never created during startRide
@@ -173,6 +177,8 @@ class FirebaseRideRepository implements RideRepository {
           'distanceMeters': rDist,
           'status': 'completed',
           'syncedLater': true,
+          if (rCompanyId != null && rCompanyId.isNotEmpty)
+            'companyId': rCompanyId, // Now correctly recovered from SQLite
         }, SetOptions(merge: true));
 
         // Mark as synced in SQLite

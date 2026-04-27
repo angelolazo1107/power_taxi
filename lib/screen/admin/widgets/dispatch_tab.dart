@@ -9,8 +9,9 @@ enum _StatusFilter { all, online, onRide, offline }
 class DispatchTab extends StatefulWidget {
   final AdminService adminService;
   final String? companyName;
+  final String? companyId; // Added for ride stream scoping
 
-  DispatchTab({super.key, AdminService? adminService, this.companyName})
+  DispatchTab({super.key, AdminService? adminService, this.companyName, this.companyId})
       : adminService = adminService ?? AdminService();
 
   @override
@@ -78,7 +79,10 @@ class _DispatchTabState extends State<DispatchTab> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Device>>(
-      stream: widget.adminService.getDevicesStream(companyName: widget.companyName),
+      stream: widget.adminService.getDevicesStream(
+        companyName: widget.companyName,
+        companyId: widget.companyId,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

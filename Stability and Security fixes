@@ -1,0 +1,25 @@
+# Power Taxi — Scalability & Security Fixes
+
+## Fix 1: Dispatch data isolation (companyId filter)
+- [ ] Update [getActiveRidesStream()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/admin_service.dart#131-140) in [admin_service.dart](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/admin_service.dart) to accept and filter by `companyId`
+- [ ] Update [dispatch_tab.dart](file:///c:/Users/Angelo/Desktop/powertaxi/lib/screen/admin/widgets/dispatch_tab.dart) to pass `companyId` from logged-in operator's session
+
+## Fix 2: Offline companyId persistence
+- [ ] Add `companyId` column to local SQLite `rides` table in `database_helper.dart`
+- [ ] Update `saveRideLocally()` to accept and store `companyId`
+- [ ] Update [completeRide()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/repository/firebase_ride_repository.dart#74-118) in [firebase_ride_repository.dart](file:///c:/Users/Angelo/Desktop/powertaxi/lib/repository/firebase_ride_repository.dart) to pass `companyId`
+- [ ] Update [syncPendingRides()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/repository/firebase_ride_repository.dart#152-190) to include `companyId` when pushing to Firestore
+
+## Fix 3: Firestore composite indexes
+- [ ] Create/update `firestore.indexes.json` with indexes for rides and devices collections
+
+## Fix 4: Password hashing
+- [ ] Add `crypto` package to `pubspec.yaml`
+- [ ] Create `hash_helper.dart` utility
+- [ ] Update [admin_service.dart](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/admin_service.dart) [addDevice()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/admin_service.dart#65-84) and [addUser()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/admin_service.dart#116-120) to store hashed passwords
+- [ ] Update [auth_service.dart](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/auth_service.dart) [login()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/auth_service.dart#35-90) and [driverLogin()](file:///c:/Users/Angelo/Desktop/powertaxi/lib/services/auth_service.dart#148-298) to compare hashed passwords
+
+## Verification
+- [ ] Run `dart analyze` to confirm no errors
+- [ ] Hot reload & test dispatch tab scoping
+- [ ] Test offline ride sync with companyId

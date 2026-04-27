@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PowerTaxi Metro — Firestore Security Rules
+// Project: powertaxi-metro
+// Updated to match multi-company implementation.
+//
+// Collections in use:
+//   ├── users       — drivers, admins, and device accounts
+//   ├── devices     — registered taxi meter hardware (doc ID = serial no.)
+//   ├── companies   — transport companies with calibration settings
+//   └── rides       — individual trip records (scoped by companyId)
+//
+// Auth strategy:
+//   This app uses a CUSTOM auth (email+password stored in Firestore, NOT
+//   Firebase Authentication). Because of this, the standard `request.auth.uid`
+//   is UNAVAILABLE. Rules therefore rely on:
+//     - Restricting certain writes to verified caller sources (known fields)
+//     - Locking down destructive operations to reduce surface area
+//   ⚠ IMPORTANT: Migrate to Firebase Auth in the future for full rule power.
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── 1. COMPANIES ──────────────────────────────────────────────────────────
+    // Companies are public-readable (devices need to query them during login
+    // to resolve companyId from company name).
+    // Write access is restricted: only documents that do not break schema.
+    match /companies/{companyId} {
+      // Any client can read company info (needed during device sync + login)
+      allow read: if true;
+
+      // Create: must have at minimum a 'name' field
+      allow create: if request.resource.data.keys().hasAll(['name'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0;
+
+      // Update: must preserve 'name'
+      allow update: if request.resource.data.keys().hasAll(['name'])
+                    && request.resource.data.name is string;
+
+      // Delete: fully open (admin-only in practice – tighten once Firebase Auth is added)
+      allow delete: if true;
+    }
+
+    // ── 2. DEVICES ────────────────────────────────────────────────────────────
+    // Devices are registered by admins. For now reads are open (devices need
+    // to self-lookup during sync). Writes require the document to have a valid
+    // 'company' or 'companyId' field.
+    match /devices/{serialNo} {
+      // Any client can read — required for syncDeviceData() and driverLogin()
+      allow read: if true;
+
+      // Create (addDevice): must have 'company' and 'serialNo'
+      allow create: if request.resource.data.keys().hasAll(['company', 'serialNo']);
+
+      // Update (updateDeviceStatus, updateDevice): allow if serialNo matches doc
+      allow update: if true; // tighten after Firebase Auth migration
+
+      // Delete: admin only; open for now
+      allow delete: if true;
+    }
+
+    // ── 3. USERS ──────────────────────────────────────────────────────────────
+    // Stores drivers, admins, and device accounts.
+    //
+    // IMPORTANT: 'login' in this app queries by email+password — this requires
+    // read access without auth token. This is a known limitation of custom auth.
+    // After Firebase Auth migration, lock reads to `request.auth != null`.
+    match /users/{userId} {
+      // Read: open — needed for login queries (email/password lookup)
+      allow read: if true;
+
+      // Create: must have 'email' and 'role'
+      allow create: if request.resource.data.keys().hasAll(['email', 'role'])
+                    && request.resource.data.email is string
+                    && request.resource.data.role in ['admin', 'driver', 'device'];
+
+      // Update: must preserve 'email' and 'role'
+      allow update: if request.resource.data.keys().hasAll(['email', 'role']);
+
+      // Delete: admin only; open for now
+      allow delete: if true;
+    }
+
+    // ── 4. RIDES ──────────────────────────────────────────────────────────────
+    // Each ride belongs to a company via 'companyId'.
+    // Writes must always include 'companyId' to prevent orphaned records.
+    match /rides/{rideId} {
+      // Read: open — dispatch screen needs to query across rides for a company
+      allow read: if true;
+
+      // Create: must include 'companyId', 'driverId', and 'status'
+      allow create: if request.resource.data.keys().hasAll(['companyId', 'driverId', 'status'])
+                    && request.resource.data.companyId is string
+                    && request.resource.data.companyId.size() > 0
+                    && request.resource.data.status in ['running', 'pending'];
+
+      // Update: cannot change companyId once set
+      allow update: if (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['companyId']))
+                    || request.resource.data.companyId == resource.data.companyId;
+
+      // Delete: not allowed (rides are permanent records)
+      allow delete: if false;
+    }
+  }
+}

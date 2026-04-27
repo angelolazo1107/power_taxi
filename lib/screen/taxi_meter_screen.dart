@@ -176,6 +176,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             plateNo: prefs.getString('plateNo'),
             bodyNo: prefs.getString('bodyNo'),
             companyName: prefs.getString('companyName'),
+            companyId: prefs.getString('companyId'),
             ptuNo: prefs.getString('ptuNo'),
             accreditationNo: prefs.getString('accreditationNo'),
             serialNo: serialNo,

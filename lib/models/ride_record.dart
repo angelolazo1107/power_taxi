@@ -1,6 +1,7 @@
 class RideRecord {
   final String? id;
   final String driverId;
+  final String? companyId; // Added for multi-tenancy
   final DateTime startTime;
   final DateTime? endTime;
   final double distanceMeters;
@@ -10,6 +11,7 @@ class RideRecord {
   RideRecord({
     this.id,
     required this.driverId,
+    this.companyId,
     required this.startTime,
     this.endTime,
     required this.distanceMeters,
@@ -20,6 +22,7 @@ class RideRecord {
   Map<String, dynamic> toMap() {
     return {
       'driverId': driverId,
+      'companyId': companyId,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime?.toIso8601String(),
       'distanceMeters': distanceMeters,
@@ -33,6 +36,7 @@ class RideRecord {
     return RideRecord(
       id: documentId,
       driverId: map['driverId'] ?? '',
+      companyId: map['companyId'],
       startTime: DateTime.parse(map['startTime']),
       endTime: map['endTime'] != null ? DateTime.parse(map['endTime']) : null,
       distanceMeters: (map['distanceMeters'] ?? 0.0).toDouble(),

@@ -1,0 +1,354 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string-array name="statusNames">
+        <item>Device No(IMEI)</item>
+        <item>Software ver</item>
+        <item>Operator code</item>
+        <item>Operator name</item>
+        <item>Mobile standard</item>
+        <item>Current location</item>
+        <item>SIM card country</item>
+        <item>SIM SN</item>
+        <item>SIM status</item>
+    </string-array>
+
+    <string-array name="simState">
+        <item>Unknown status</item>
+        <item>No SIM card</item>
+        <item>Locked by PIN</item>
+        <item>Locked by PUK</item>
+        <item>Locked by NetWork PIN</item>
+        <item>Ready</item>
+    </string-array>
+
+    <string-array name="phoneType">
+        <item>Unknown</item>
+        <item>GSM</item>
+        <item>CDMA</item>
+    </string-array>
+
+     <string-array name="read_block">
+    	<item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>20</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>24</item>
+        <item>25</item>
+        <item>26</item>
+        <item>28</item>
+        <item>29</item>
+        <item>30</item>
+        <item>32</item>
+        <item>33</item>
+        <item>34</item>
+        <item>36</item>
+        <item>37</item>
+        <item>38</item>
+        <item>40</item>
+        <item>41</item>
+        <item>42</item>
+        <item>44</item>
+        <item>45</item>
+        <item>46</item>
+        <item>48</item>
+        <item>49</item>
+        <item>50</item>
+        <item>52</item>
+        <item>53</item>
+        <item>54</item>
+        <item>56</item>
+        <item>57</item>
+        <item>58</item>
+        <item>60</item>
+        <item>61</item>
+        <item>62</item>  
+    </string-array>
+
+    <string-array name="write_block">
+        <item>1</item>
+        <item>2</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>20</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>24</item>
+        <item>25</item>
+        <item>26</item>
+        <item>28</item>
+        <item>29</item>
+        <item>30</item>
+        <item>32</item>
+        <item>33</item>
+        <item>34</item>
+        <item>36</item>
+        <item>37</item>
+        <item>38</item>
+        <item>40</item>
+        <item>41</item>
+        <item>42</item>
+        <item>44</item>
+        <item>45</item>
+        <item>46</item>
+        <item>48</item>
+        <item>49</item>
+        <item>50</item>
+        <item>52</item>
+        <item>53</item>
+        <item>54</item>
+        <item>56</item>
+        <item>57</item>
+        <item>58</item>
+        <item>60</item>
+        <item>61</item>
+        <item>62</item>  
+    </string-array>
+
+     <string-array name="block_wallet">
+        <item>1</item>
+        <item>2</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>20</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>24</item>
+        <item>25</item>
+        <item>26</item>
+        <item>28</item>
+        <item>29</item>
+        <item>30</item>
+        <item>32</item>
+        <item>33</item>
+        <item>34</item>
+        <item>36</item>
+        <item>37</item>
+        <item>38</item>
+        <item>40</item>
+        <item>41</item>
+        <item>42</item>
+        <item>44</item>
+        <item>45</item>
+        <item>46</item>
+        <item>48</item>
+        <item>49</item>
+        <item>50</item>
+        <item>52</item>
+        <item>53</item>
+        <item>54</item>
+        <item>56</item>
+        <item>57</item>
+        <item>58</item>
+        <item>60</item>
+        <item>61</item>
+        <item>62</item>  
+    </string-array>
+
+     <string-array name="secret_block">
+        <item>3</item>
+        <item>7</item>
+        <item>11</item>
+        <item>15</item>
+        <item>19</item>
+        <item>23</item>
+        <item>27</item>
+        <item>31</item>
+        <item>35</item>
+        <item>39</item>
+        <item>43</item>
+        <item>47</item>
+        <item>51</item>
+        <item>55</item>
+        <item>59</item>
+        <item>63</item> 
+    </string-array>
+
+     <string-array name="key_ab">
+        <item>KeyA</item>
+        <item>KeyB</item>
+    </string-array>
+    <string-array name="frame_id_type">
+		<item>Extended frame</item>
+		<item>Standard frame</item>
+	</string-array>
+	<string-array name="frame_data_type">
+		<item>Remote frame</item>
+		<item>Data frame</item>
+	</string-array>
+	<string-array name="canfd_frame_data_length">
+		<item>0</item>
+		<item>1</item>
+		<item>2</item>
+		<item>3</item>
+		<item>4</item>
+		<item>5</item>
+		<item>6</item>
+		<item>7</item>
+		<item>8</item>
+		<item>12</item>
+		<item>16</item>
+		<item>20</item>
+		<item>24</item>
+		<item>32</item>
+		<item>48</item>
+		<item>64</item>
+	</string-array>
+
+	<string-array name="write_canmsg_value">
+		<item>1</item>
+		<item>5</item>
+		<item>10</item>
+		<item>50</item>
+		<item>100</item>
+		<item>200</item>
+		<item>500</item>
+		<item>1000</item>
+		<item>2000</item>
+		<item>5000</item>
+		<item>10000</item>
+	</string-array>
+	
+	<string-array name="canfd_bitrate">
+		<item>5k</item>
+		<item>10k</item>
+		<item>20k</item>
+		<item>25k</item>
+		<item>40k</item>
+		<item>50k</item>
+		<item>100k</item>
+		<item>125k</item>
+		<item>250k</item>
+		<item>500k</item>
+		<item>800k</item>
+		<item>1000k</item>
+	</string-array>
+	
+	<string-array name="canfd_dbitrate">
+		<item>125k</item>
+		<item>250k</item>
+		<item>500k</item>
+		<item>800k</item>
+		<item>1000k</item>
+		<item>2000k</item>
+		<item>4000k</item>
+		<item>5000k</item>
+	</string-array>
+
+	<string-array name="can_bitrate">
+		<item>5k</item>
+		<item>10k</item>
+		<item>20k</item>
+		<item>50k</item>
+		<item>100k</item>
+		<item>125k</item>
+		<item>250k</item>
+		<item>500k</item>
+		<item>800k</item>
+		<item>1000k</item>
+	</string-array>
+
+	<string-array name="can_frame_data_length">
+		<item>0</item>
+		<item>1</item>
+		<item>2</item>
+		<item>3</item>
+		<item>4</item>
+		<item>5</item>
+		<item>6</item>
+		<item>7</item>
+		<item>8</item>
+	</string-array>
+	
+	<string-array name="writ_sleep_time">
+		<item>10(ms)</item>
+		<item>20(ms)</item>
+		<item>50(ms)</item>
+		<item>100(ms)</item>
+		<item>200(ms)</item>
+		<item>500(ms)</item>
+		<item>1000(ms)</item>
+	</string-array>
+    
+    <string-array name="coms_v1">
+        <item>/dev/ttyS0</item>
+        <item>/dev/ttyS1</item>
+        <item>/dev/ttyS2</item>
+        <item>/dev/ttyS3</item>
+        <item>/dev/ttyS4</item>
+        <item>/dev/ttyS5</item>
+        <item>/dev/ttyUSB0</item>
+        <item>/dev/ttyUSB4</item>
+        <item>/dev/ttyUSB5</item>
+    </string-array>
+    
+    <string-array name="coms_v2">
+        <item>/dev/ttyS0</item>
+        <item>/dev/ttyS1</item>
+        <item>/dev/ttyS3</item>
+        <item>/dev/ttyS4</item>
+        <item>/dev/ttyUSB0</item>
+        <item>/dev/ttyUSB4</item>
+        <item>/dev/ttyUSB5</item>
+    </string-array>
+    <string-array name="bauds">		
+        <item>1200</item>
+        <item>2400</item>
+        <item>4800</item>
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>57600</item>
+        <item>115200</item>
+    </string-array>
+    <string-array name="databits">
+        <item>7</item>
+        <item>8</item>
+    </string-array>
+    <string-array name="parity">
+        <item>No parity</item>
+        <item>Odd parity</item>
+        <item>Even parity</item>
+    </string-array>
+    <string-array name="stopbits">
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+</resources>

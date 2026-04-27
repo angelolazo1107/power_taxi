@@ -23,6 +23,10 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
   void _showCompanyDialog({Company? existing}) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final tinCtrl  = TextEditingController(text: existing?.tin ?? '');
+    final baseFareCtrl = TextEditingController(text: (existing?.baseFare ?? 40.0).toString());
+    final ratePerKmCtrl = TextEditingController(text: (existing?.ratePerKm ?? 13.50).toString());
+    final ratePerMinuteCtrl = TextEditingController(text: (existing?.ratePerMinute ?? 2.0).toString());
+    final multiplierCtrl = TextEditingController(text: (existing?.distanceMultiplier ?? 1.0).toString());
 
     showDialog(
       context: context,
@@ -47,6 +51,30 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
               _buildDialogField(nameCtrl, 'Company Name', Icons.business_outlined),
               const SizedBox(height: 16),
               _buildDialogField(tinCtrl, 'TIN Number', Icons.tag_outlined),
+              const SizedBox(height: 24),
+              const Row(
+                children: [
+                   Icon(Icons.settings_applications, color: _orange, size: 18),
+                   SizedBox(width: 8),
+                   Text('Calibration Settings', style: TextStyle(color: _orange, fontWeight: FontWeight.bold, fontSize: 14)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _buildDialogField(baseFareCtrl, 'Base Fare', Icons.money, isNumber: true)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildDialogField(ratePerKmCtrl, 'Rate / KM', Icons.add_road, isNumber: true)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _buildDialogField(ratePerMinuteCtrl, 'Rate / Min', Icons.timer, isNumber: true)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildDialogField(multiplierCtrl, 'Dist Multiplier', Icons.multiline_chart, isNumber: true)),
+                ],
+              ),
             ],
           ),
         ),
@@ -66,12 +94,23 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
               Navigator.pop(ctx);
               try {
                 if (existing == null) {
-                  await widget.adminService.addCompany(nameCtrl.text, tinCtrl.text);
+                  await widget.adminService.addCompany(
+                    nameCtrl.text, 
+                    tinCtrl.text,
+                    baseFare: double.tryParse(baseFareCtrl.text),
+                    ratePerKm: double.tryParse(ratePerKmCtrl.text),
+                    ratePerMinute: double.tryParse(ratePerMinuteCtrl.text),
+                    distanceMultiplier: double.tryParse(multiplierCtrl.text),
+                  );
                 } else {
                   await widget.adminService.updateCompany(Company(
                     id: existing.id,
                     name: nameCtrl.text,
                     tin: tinCtrl.text,
+                    baseFare: double.tryParse(baseFareCtrl.text) ?? 40.0,
+                    ratePerKm: double.tryParse(ratePerKmCtrl.text) ?? 13.50,
+                    ratePerMinute: double.tryParse(ratePerMinuteCtrl.text) ?? 2.0,
+                    distanceMultiplier: double.tryParse(multiplierCtrl.text) ?? 1.0,
                   ));
                 }
                 if (mounted) {
@@ -325,9 +364,10 @@ class _CompanyManagementTabState extends State<CompanyManagementTab> {
     );
   }
 
-  TextField _buildDialogField(TextEditingController ctrl, String label, IconData icon) {
+  TextField _buildDialogField(TextEditingController ctrl, String label, IconData icon, {bool isNumber = false}) {
     return TextField(
       controller: ctrl,
+      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,

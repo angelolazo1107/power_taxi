@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.howen.howentestdemo"
+    android:versionCode="1"
+    android:versionName="V1.9">
+
+    <uses-feature android:name="android.hardware.camera" />
+    <uses-feature android:name="android.hardware.camera.autofocus" />
+
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- 在SDCard中创建与删除文件权限 -->
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
+    <!-- 往SDCard写入数据权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- 添加访问手机位置的权限 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- 添加访问手机状态的权限 -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- 授予该程序录制声音的权限 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 授予该程序向外部存储器写入数据的权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- 授权获取定位信息 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- 授权获取telephoe的权限 -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- 授权手机卡 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission  android:name="android.permission.WRITE_SETTINGS"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Black">
+        <activity android:name=".MainActivity" android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.howen.howentestdemo.TelephonyStatus" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.SDCardStatus" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.RecordActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.rfid.RFIDActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.rfid.RFIDSdkActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.rfid.RFIDCardID" android:screenOrientation="landscape">
+        </activity>
+
+        <activity android:name="com.howen.howentestdemo.rfid.WalletActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.rfid.WalletSettingsActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.rfid.DecreaseWalletActivity" android:screenOrientation="landscape">
+        </activity>
+        
+        <activity android:name="com.howen.howentestdemo.LocationActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.MusicActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.VideoActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.VideoActivityV5" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.GsmActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.BatteryActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.GsensorActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.GPIOActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.GPIOListenerActivity" android:screenOrientation="landscape">
+        </activity>
+         <activity android:name="com.howen.howentestdemo.GPIOMainActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.SocketActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity
+        		android:screenOrientation="landscape"
+            android:name="com.howen.howentestdemo.SerialPortMain"
+            android:windowSoftInputMode="stateHidden|adjustPan" >
+        </activity>
+     	  
+     	<activity 
+        		android:name="com.howen.howentestdemo.OneUsbCameraActivity" 
+            	android:screenOrientation="landscape">
+     	</activity>
+
+     	<activity 
+        		android:name="com.howen.howentestdemo.TwoUsbCameraActivity" 
+            	android:screenOrientation="landscape">
+     	</activity>
+
+     	<activity android:name="com.howen.howentestdemo.PluseActivity" android:screenOrientation="landscape">
+        </activity>
+
+        <activity android:name="com.howen.howentestdemo.OEMKeysActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.can.CanFdActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.can.CanActivity" android:screenOrientation="landscape">
+        </activity>
+        <activity android:name="com.howen.howentestdemo.OimlActivity" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:screenOrientation="landscape">
+        </activity>
+     		
+        <service android:name="com.howen.howentestdemo.MusicService" android:screenOrientation="landscape">
+        </service>
+        <activity android:name="com.howen.howentestdemo.BrightnessActivity" android:screenOrientation="landscape">
+        </activity>
+        
+    </application>
+
+</manifest>

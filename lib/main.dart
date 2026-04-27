@@ -9,6 +9,7 @@ import 'package:powertaxi/screen/admin/admin_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:powertaxi/firebase_options.dart';
+import 'package:powertaxi/core/recovery_utils.dart'; // Added for recovery
 
 // Your Imports
 import 'package:powertaxi/bloc/taxi_meter/taxi_meter_bloc.dart';
@@ -33,6 +34,11 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ─── EMERGENCY RECOVERY ────────────────────────────────────────────────────
+  // TODO: Remove this call after first successful run
+  await RecoveryUtils.createEmergencyAdmin('admin@powertaxi.com', 'Admin@123');
+  // ──────────────────────────────────────────────────────────────────────────
 
   // 3. Check persistent login state
   final prefs = await SharedPreferences.getInstance();

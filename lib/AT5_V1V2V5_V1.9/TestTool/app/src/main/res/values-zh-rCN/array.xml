@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string-array name="statusNames">
+        <item>设备编号（IMEI）</item>
+        <item>软件版本</item>
+        <item>运营商号</item>
+        <item>运营商</item>
+        <item>移动标准</item>
+        <item>当前位置</item>
+        <item>SIM卡国家/地区</item>
+        <item>SIM序列号</item>
+        <item>SIM卡状态</item>
+    </string-array>
+    
+    <string-array name="simState">
+        <item>未知状态</item>
+        <item>无SIM卡</item>
+        <item>PIN锁定</item>
+        <item>PUK锁定</item>
+        <item>网络PIN锁定</item>
+        <item>准备好了</item>
+    </string-array>
+    
+    <string-array name="phoneType">
+        <item>未知状态</item>
+        <item>GSM</item>
+        <item>CDMA</item>
+    </string-array>
+
+</resources>

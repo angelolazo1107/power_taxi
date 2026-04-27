@@ -20,6 +20,7 @@ abstract class TaxiMeterState extends Equatable {
   // Driver & Device Info
   final String? driverName;
   final String? driverId;
+  final String? companyId;
   final String? plateNo;
   final String? bodyNo;
   final String? companyName;
@@ -47,6 +48,7 @@ abstract class TaxiMeterState extends Equatable {
     this.activityLogPrinted = false,
     this.driverName,
     this.driverId,
+    this.companyId,
     this.plateNo,
     this.bodyNo,
     this.companyName,
@@ -76,6 +78,7 @@ abstract class TaxiMeterState extends Equatable {
     activityLogPrinted,
     driverName,
     driverId,
+    companyId,
     plateNo,
     bodyNo,
     companyName,
@@ -85,6 +88,35 @@ abstract class TaxiMeterState extends Equatable {
     tin,
     minNo,
   ];
+
+  TaxiMeterState copyWith({
+    double? fare,
+    int? elapsedSeconds,
+    double? distanceMeters,
+    String? rideId,
+    bool? showSettings,
+    int? activeSettingsTab,
+    bool? zReadingPerformed,
+    bool? xReadingPerformed,
+    bool? remittancePerformed,
+    double? subtotal,
+    double? discountRate,
+    double? discountAmount,
+    bool? is80mmPrinter,
+    int? waitingSeconds,
+    bool? activityLogPrinted,
+    String? driverName,
+    String? driverId,
+    String? companyId,
+    String? plateNo,
+    String? bodyNo,
+    String? companyName,
+    String? ptuNo,
+    String? accreditationNo,
+    String? serialNo,
+    String? tin,
+    String? minNo,
+  });
 }
 
 class MeterInitial extends TaxiMeterState {
@@ -99,6 +131,7 @@ class MeterInitial extends TaxiMeterState {
     super.activityLogPrinted,
     super.driverName,
     super.driverId,
+    super.companyId,
     super.plateNo,
     super.bodyNo,
     super.companyName,
@@ -112,6 +145,58 @@ class MeterInitial extends TaxiMeterState {
          elapsedSeconds: 0,
          distanceMeters: 0.0,
        );
+
+  @override
+  MeterInitial copyWith({
+    double? fare,
+    int? elapsedSeconds,
+    double? distanceMeters,
+    String? rideId,
+    bool? showSettings,
+    int? activeSettingsTab,
+    bool? zReadingPerformed,
+    bool? xReadingPerformed,
+    bool? remittancePerformed,
+    double? subtotal,
+    double? discountRate,
+    double? discountAmount,
+    bool? is80mmPrinter,
+    int? waitingSeconds,
+    bool? activityLogPrinted,
+    String? driverName,
+    String? driverId,
+    String? companyId,
+    String? plateNo,
+    String? bodyNo,
+    String? companyName,
+    String? ptuNo,
+    String? accreditationNo,
+    String? serialNo,
+    String? tin,
+    String? minNo,
+  }) {
+    return MeterInitial(
+      showSettings: showSettings ?? this.showSettings,
+      activeSettingsTab: activeSettingsTab ?? this.activeSettingsTab,
+      is80mmPrinter: is80mmPrinter ?? this.is80mmPrinter,
+      waitingSeconds: waitingSeconds ?? this.waitingSeconds,
+      zReadingPerformed: zReadingPerformed ?? this.zReadingPerformed,
+      xReadingPerformed: xReadingPerformed ?? this.xReadingPerformed,
+      remittancePerformed: remittancePerformed ?? this.remittancePerformed,
+      activityLogPrinted: activityLogPrinted ?? this.activityLogPrinted,
+      driverName: driverName ?? this.driverName,
+      driverId: driverId ?? this.driverId,
+      companyId: companyId ?? this.companyId,
+      plateNo: plateNo ?? this.plateNo,
+      bodyNo: bodyNo ?? this.bodyNo,
+      companyName: companyName ?? this.companyName,
+      ptuNo: ptuNo ?? this.ptuNo,
+      accreditationNo: accreditationNo ?? this.accreditationNo,
+      serialNo: serialNo ?? this.serialNo,
+      tin: tin ?? this.tin,
+      minNo: minNo ?? this.minNo,
+    );
+  }
 }
 
 class MeterRunning extends TaxiMeterState {
@@ -133,6 +218,7 @@ class MeterRunning extends TaxiMeterState {
     super.activityLogPrinted,
     super.driverName,
     super.driverId,
+    super.companyId,
     super.plateNo,
     super.bodyNo,
     super.companyName,
@@ -148,6 +234,64 @@ class MeterRunning extends TaxiMeterState {
     ...super.props,
     isWaiting,
   ];
+
+  @override
+  MeterRunning copyWith({
+    double? fare,
+    int? elapsedSeconds,
+    double? distanceMeters,
+    String? rideId,
+    bool? showSettings,
+    int? activeSettingsTab,
+    bool? zReadingPerformed,
+    bool? xReadingPerformed,
+    bool? remittancePerformed,
+    double? subtotal,
+    double? discountRate,
+    double? discountAmount,
+    bool? is80mmPrinter,
+    int? waitingSeconds,
+    bool? activityLogPrinted,
+    String? driverName,
+    String? driverId,
+    String? companyId,
+    String? plateNo,
+    String? bodyNo,
+    String? companyName,
+    String? ptuNo,
+    String? accreditationNo,
+    String? serialNo,
+    String? tin,
+    String? minNo,
+    bool? isWaiting,
+  }) {
+    return MeterRunning(
+      fare: fare ?? this.fare,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      rideId: rideId ?? this.rideId,
+      showSettings: showSettings ?? this.showSettings,
+      activeSettingsTab: activeSettingsTab ?? this.activeSettingsTab,
+      is80mmPrinter: is80mmPrinter ?? this.is80mmPrinter,
+      waitingSeconds: waitingSeconds ?? this.waitingSeconds,
+      isWaiting: isWaiting ?? this.isWaiting,
+      zReadingPerformed: zReadingPerformed ?? this.zReadingPerformed,
+      xReadingPerformed: xReadingPerformed ?? this.xReadingPerformed,
+      remittancePerformed: remittancePerformed ?? this.remittancePerformed,
+      activityLogPrinted: activityLogPrinted ?? this.activityLogPrinted,
+      driverName: driverName ?? this.driverName,
+      driverId: driverId ?? this.driverId,
+      companyId: companyId ?? this.companyId,
+      plateNo: plateNo ?? this.plateNo,
+      bodyNo: bodyNo ?? this.bodyNo,
+      companyName: companyName ?? this.companyName,
+      ptuNo: ptuNo ?? this.ptuNo,
+      accreditationNo: accreditationNo ?? this.accreditationNo,
+      serialNo: serialNo ?? this.serialNo,
+      tin: tin ?? this.tin,
+      minNo: minNo ?? this.minNo,
+    );
+  }
 }
 
 class MeterStopped extends TaxiMeterState {
@@ -169,6 +313,7 @@ class MeterStopped extends TaxiMeterState {
     super.activityLogPrinted,
     super.driverName,
     super.driverId,
+    super.companyId,
     super.plateNo,
     super.bodyNo,
     super.companyName,
@@ -178,6 +323,65 @@ class MeterStopped extends TaxiMeterState {
     super.tin,
     super.minNo,
   });
+
+  @override
+  MeterStopped copyWith({
+    double? fare,
+    int? elapsedSeconds,
+    double? distanceMeters,
+    String? rideId,
+    bool? showSettings,
+    int? activeSettingsTab,
+    bool? zReadingPerformed,
+    bool? xReadingPerformed,
+    bool? remittancePerformed,
+    double? subtotal,
+    double? discountRate,
+    double? discountAmount,
+    bool? is80mmPrinter,
+    int? waitingSeconds,
+    bool? activityLogPrinted,
+    String? driverName,
+    String? driverId,
+    String? companyId,
+    String? plateNo,
+    String? bodyNo,
+    String? companyName,
+    String? ptuNo,
+    String? accreditationNo,
+    String? serialNo,
+    String? tin,
+    String? minNo,
+  }) {
+    return MeterStopped(
+      subtotal: subtotal ?? this.subtotal,
+      discountRate: discountRate ?? this.discountRate,
+      discountAmount: discountAmount ?? this.discountAmount,
+      fare: fare ?? this.fare,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      rideId: rideId ?? this.rideId,
+      showSettings: showSettings ?? this.showSettings,
+      activeSettingsTab: activeSettingsTab ?? this.activeSettingsTab,
+      is80mmPrinter: is80mmPrinter ?? this.is80mmPrinter,
+      waitingSeconds: waitingSeconds ?? this.waitingSeconds,
+      zReadingPerformed: zReadingPerformed ?? this.zReadingPerformed,
+      xReadingPerformed: xReadingPerformed ?? this.xReadingPerformed,
+      remittancePerformed: remittancePerformed ?? this.remittancePerformed,
+      activityLogPrinted: activityLogPrinted ?? this.activityLogPrinted,
+      driverName: driverName ?? this.driverName,
+      driverId: driverId ?? this.driverId,
+      companyId: companyId ?? this.companyId,
+      plateNo: plateNo ?? this.plateNo,
+      bodyNo: bodyNo ?? this.bodyNo,
+      companyName: companyName ?? this.companyName,
+      ptuNo: ptuNo ?? this.ptuNo,
+      accreditationNo: accreditationNo ?? this.accreditationNo,
+      serialNo: serialNo ?? this.serialNo,
+      tin: tin ?? this.tin,
+      minNo: minNo ?? this.minNo,
+    );
+  }
 }
 
 class MeterPaused extends TaxiMeterState {
@@ -196,6 +400,7 @@ class MeterPaused extends TaxiMeterState {
     super.activityLogPrinted,
     super.driverName,
     super.driverId,
+    super.companyId,
     super.plateNo,
     super.bodyNo,
     super.companyName,
@@ -205,4 +410,60 @@ class MeterPaused extends TaxiMeterState {
     super.tin,
     super.minNo,
   });
+
+  @override
+  MeterPaused copyWith({
+    double? fare,
+    int? elapsedSeconds,
+    double? distanceMeters,
+    String? rideId,
+    bool? showSettings,
+    int? activeSettingsTab,
+    bool? zReadingPerformed,
+    bool? xReadingPerformed,
+    bool? remittancePerformed,
+    double? subtotal,
+    double? discountRate,
+    double? discountAmount,
+    bool? is80mmPrinter,
+    int? waitingSeconds,
+    bool? activityLogPrinted,
+    String? driverName,
+    String? driverId,
+    String? companyId,
+    String? plateNo,
+    String? bodyNo,
+    String? companyName,
+    String? ptuNo,
+    String? accreditationNo,
+    String? serialNo,
+    String? tin,
+    String? minNo,
+  }) {
+    return MeterPaused(
+      fare: fare ?? this.fare,
+      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      rideId: rideId ?? this.rideId,
+      showSettings: showSettings ?? this.showSettings,
+      activeSettingsTab: activeSettingsTab ?? this.activeSettingsTab,
+      is80mmPrinter: is80mmPrinter ?? this.is80mmPrinter,
+      waitingSeconds: waitingSeconds ?? this.waitingSeconds,
+      zReadingPerformed: zReadingPerformed ?? this.zReadingPerformed,
+      xReadingPerformed: xReadingPerformed ?? this.xReadingPerformed,
+      remittancePerformed: remittancePerformed ?? this.remittancePerformed,
+      activityLogPrinted: activityLogPrinted ?? this.activityLogPrinted,
+      driverName: driverName ?? this.driverName,
+      driverId: driverId ?? this.driverId,
+      companyId: companyId ?? this.companyId,
+      plateNo: plateNo ?? this.plateNo,
+      bodyNo: bodyNo ?? this.bodyNo,
+      companyName: companyName ?? this.companyName,
+      ptuNo: ptuNo ?? this.ptuNo,
+      accreditationNo: accreditationNo ?? this.accreditationNo,
+      serialNo: serialNo ?? this.serialNo,
+      tin: tin ?? this.tin,
+      minNo: minNo ?? this.minNo,
+    );
+  }
 }

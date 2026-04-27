@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:background="@drawable/bg_testtool"
+    android:orientation="horizontal" >
+
+     <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical" >
+        
+        <EditText
+			android:id="@+id/show_log"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:layout_marginTop="24dp"
+			android:clickable="false"
+			android:textSize="@dimen/can_log_textSize"
+			android:longClickable="false"
+			android:editable="false"/>
+    </LinearLayout>
+
+	
+	 <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="2"
+        android:orientation="vertical" >
+
+         <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:orientation="horizontal" >
+
+	        <TextView
+				android:id="@+id/read_write_value"
+				android:layout_width="match_parent"
+				android:gravity="center_vertical"
+				android:layout_height="match_parent"
+				android:textSize="@dimen/can_main_textSize"
+				android:layout_weight="2" />
+	        
+		</LinearLayout>
+
+		 <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:layout_marginBottom="@dimen/can_layout_marginBottom"
+	        android:orientation="horizontal" > 
+	
+        	<Button
+				android:id="@+id/chean"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:layout_weight="1"
+				android:text="@string/clean" />
+	        
+		</LinearLayout>
+		
+        <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:orientation="horizontal" >
+
+	        <Spinner
+				android:id="@+id/bitrate"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/can_bitrate"
+				android:layout_height="match_parent"/>
+	        
+			<Spinner
+				android:id="@+id/writ_sleep_time"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/writ_sleep_time"
+				android:layout_height="match_parent"/>
+		</LinearLayout>
+
+		<LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:layout_marginBottom="@dimen/can_layout_marginBottom"
+	        android:orientation="horizontal" >
+	        <Button
+				android:id="@+id/open_can_device"
+				android:layout_width="0dp"
+				android:layout_height="match_parent"
+				android:layout_weight="1"
+				android:text="@string/open_can_device" />
+
+			<Button
+				android:id="@+id/close_can_device"
+				android:layout_width="0dp"
+				android:layout_height="match_parent"
+				android:layout_weight="1"
+				android:text="@string/close_can_device" />
+		</LinearLayout>
+
+		<LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:orientation="horizontal" >
+
+	        <Spinner
+				android:id="@+id/frame_id_type"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/frame_id_type"
+				android:layout_height="match_parent"/>
+
+			<Spinner
+				android:id="@+id/frame_data_type"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/frame_data_type"
+				android:layout_height="match_parent"/>
+
+			<Spinner
+				android:id="@+id/frame_data_length"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/can_frame_data_length"
+				android:layout_height="match_parent"/>
+
+			 <EditText
+                android:id="@+id/can_id"
+                android:layout_weight="1"
+                android:digits="1234567890"
+                android:textSize="@dimen/can_main_textSize"
+                android:layout_width="0dp"
+                android:layout_height="match_parent" />
+                
+		</LinearLayout>
+
+		<LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="0dp"
+	        android:layout_weight="1"
+	        android:layout_marginBottom="@dimen/can_layout_marginBottom"
+	        android:orientation="horizontal" >
+
+	        <Spinner
+				android:id="@+id/write_canmsg_value"
+				android:layout_width="0dp"
+				android:layout_weight="1"
+				android:entries="@array/write_canmsg_value"
+				android:layout_height="match_parent"/>
+	        
+			<Button
+				android:id="@+id/write_can_data"
+				android:layout_width="0dp"
+				android:layout_height="match_parent"
+				android:layout_weight="1"
+				android:text="@string/write_can_data" />
+		</LinearLayout>
+		
+        
+    </LinearLayout>
+
+    
+</LinearLayout>
