@@ -260,10 +260,9 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () => _showDiscountDialog(
-                    context,
-                    bloc,
-                  ), // Triggers your red popup
+                  onPressed: () {
+                    bloc.add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
+                  },
                   icon: const Icon(Icons.stop, color: Colors.white, size: 24),
                   label: const Text(
                     'END TRIP',
@@ -329,7 +328,9 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
               ),
               elevation: 0,
             ),
-            onPressed: () => _showStartTripDialog(context, bloc),
+            onPressed: () {
+              bloc.add(const StartRide('driver_001'));
+            },
             icon: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
             label: const Text(
               'START TRIP',
@@ -441,7 +442,9 @@ Widget _buildMainActionButton(BuildContext context, TaxiMeterState state) {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
       ),
-      onPressed: () => _showStartTripDialog(context, bloc),
+      onPressed: () {
+        bloc.add(const StartRide('driver_001'));
+      },
       icon: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
       label: const Text(
         'START TRIP',
@@ -862,296 +865,54 @@ Widget _buildCoordinateRow(
 // ===========================================================================
 // DISCOUNT SELECTION & CONFIRMATION POPUP
 // ===========================================================================
-void _showDiscountDialog(BuildContext parentContext, TaxiMeterBloc bloc) {
-  String selectedTitle = 'REGULAR';
-  double selectedRate = 0.0;
-
-  final List<Map<String, dynamic>> discountOptions = [
-    {
-      'title': 'REGULAR',
-      'rate': 0.0,
-      'subtitle': 'Standard fare without adjustments',
-      'icon': Icons.person_outline,
-    },
-    {
-      'title': 'SENIOR CITIZEN',
-      'rate': 0.20,
-      'subtitle': '20% Government Mandated Discount',
-      'icon': Icons.elderly,
-    },
-    {
-      'title': 'PWD',
-      'rate': 0.20,
-      'subtitle': '20% Government Mandated Discount',
-      'icon': Icons.accessible,
-    },
-    {
-      'title': 'STUDENT',
-      'rate': 0.20,
-      'subtitle': '20% Educational Discount',
-      'icon': Icons.school_outlined,
-    },
-  ];
-
-  showDialog(
-    context: parentContext,
-    barrierDismissible: false,
-    builder: (BuildContext dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Container(
-              width: 500,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B222C),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF2A313E), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(150),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header Section
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF7121).withAlpha(20),
-                        border: const Border(
-                          bottom: BorderSide(color: Color(0xFF2A313E)),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF7121).withAlpha(40),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.confirmation_num_outlined, color: Color(0xFFFF7121), size: 28),
-                          ),
-                          const SizedBox(width: 20),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "TRIP DISCOUNT",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              Text(
-                                "Select applicable discount for this ride",
-                                style: TextStyle(color: Color(0xFF8B95A5), fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Selection Area
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
-                      child: Column(
-                        children: [
-                          ...discountOptions.map((option) {
-                            bool isSelected = selectedTitle == option['title'];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 14.0),
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    selectedTitle = option['title'];
-                                    selectedRate = option['rate'];
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.all(18),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFFFF7121).withAlpha(25) : Colors.black.withAlpha(30),
-                                    border: Border.all(
-                                      color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF2A313E),
-                                      width: isSelected ? 2.5 : 1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: const Color(0xFFFF7121).withAlpha(40),
-                                              blurRadius: 12,
-                                              offset: const Offset(0, 4),
-                                            )
-                                          ]
-                                        : [],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF1B222C),
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(
-                                            color: isSelected ? const Color(0xFFFF7121) : const Color(0xFF2A313E),
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          option['icon'],
-                                          color: isSelected ? Colors.black : const Color(0xFF8B95A5),
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 18),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              option['title'],
-                                              style: TextStyle(
-                                                color: isSelected ? Colors.white : Colors.white70,
-                                                fontSize: 17,
-                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              option['subtitle'],
-                                              style: TextStyle(
-                                                color: isSelected ? Colors.white.withAlpha(140) : const Color(0xFF8B95A5),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (isSelected)
-                                        const Icon(Icons.check_circle, color: Color(0xFFFF7121), size: 24),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-
-                          const SizedBox(height: 16),
-
-                          // Action Buttons
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 56,
-                                  child: OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF8B95A5),
-                                      side: const BorderSide(color: Color(0xFF2A313E)),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                    onPressed: () => Navigator.pop(dialogContext),
-                                    child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                flex: 2,
-                                child: SizedBox(
-                                  height: 56,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      elevation: 0,
-                                    ),
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      _showFinalConfirmationDialog(
-                                        parentContext,
-                                        selectedTitle,
-                                        selectedRate,
-                                      );
-                                    },
-                                    child: const Text(
-                                      "CONFIRM & STOP",
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-void _showFinalConfirmationDialog(
-  BuildContext context,
-  String discountType,
-  double discountRate,
-) {
+void _showEndTripConfirmationDialog(BuildContext context, TaxiMeterBloc bloc) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xFF1B222C),
-        title: const Text(
-          "END TRIP?",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2A313E), width: 1),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.stop, color: Colors.redAccent, size: 28),
+            SizedBox(width: 12),
+            Text(
+              "END TRIP?",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+          ],
         ),
         content: const Text(
           "Are you sure you want to stop the meter and finalize this trip?",
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: Colors.white70, fontSize: 16),
         ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext), // Just close, don't stop
-            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(
+              "CANCEL",
+              style: TextStyle(color: Color(0xFF8B95A5), fontWeight: FontWeight.bold, fontSize: 15),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
-              // Close the dialog
               Navigator.pop(dialogContext);
-
-              // FIRE THE STOP EVENT TO THE BLOC
-              context.read<TaxiMeterBloc>().add(
-                StopRide(
-                  discountRate: discountRate,
-                  discountType: discountType,
-                ),
-              );
+              bloc.add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
             },
-            child: const Text("CONFIRM", style: TextStyle(color: Colors.white)),
+            child: const Text(
+              "CONFIRM",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+            ),
           ),
         ],
       );

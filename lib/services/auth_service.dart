@@ -1,15 +1,22 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io'; // Added for Platform checks
 import '../core/database_helper.dart';
-import '../core/hash_helper.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 
 class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Helper to hash a PIN with SHA-256 (matches web admin hashSha256)
+  String hashSha256(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
 
   /// Recursively converts Firestore Timestamps to ISO strings for JSON serialization.
   Map<String, dynamic> _sanitizeFirestoreData(Map<String, dynamic> data) {
@@ -189,9 +196,11 @@ class AuthService {
 
       Map<String, dynamic>? userData;
 
-      // Simple plain text PIN comparison (no hashing)
+      final String hashedPin = hashSha256(pin);
+
+      // Simple plain text & SHA-256 hash PIN comparison
       debugPrint(
-        '🔐 [AUTH] Driver Login Attempt: name="$name", pin="$pin", deviceSerial="$effectiveSerialNo"',
+        '🔐 [AUTH] Driver Login Attempt: name="$name", pin="$pin" (hashed="$hashedPin"), deviceSerial="$effectiveSerialNo"',
       );
 
       if (isOffline) {
@@ -203,8 +212,9 @@ class AuthService {
         final List<dynamic> cachedDrivers = jsonDecode(cachedStr);
         bool found = false;
         for (var d in cachedDrivers) {
-          // Compare plain text PIN
-          if (d['name'] == name && d['pin'] == pin) {
+          // Compare plain text PIN or SHA-256 hashed PIN (for backwards compatibility)
+          final storedPin = d['pin'];
+          if (d['name'] == name && (storedPin == pin || storedPin == hashedPin)) {
             userData = d as Map<String, dynamic>;
             found = true;
             break;
@@ -215,14 +225,25 @@ class AuthService {
         }
       } else {
         debugPrint(
-          '🔐 [AUTH] Querying Firestore: collection="users", role="driver", name="$name", pin="$pin"',
+          '🔐 [AUTH] Querying Firestore: collection="users", role="driver", name="$name", pin="$hashedPin"',
         );
-        final querySnapshot = await _firestore
+        var querySnapshot = await _firestore
             .collection('users')
             .where('role', isEqualTo: 'driver')
             .where('name', isEqualTo: name)
-            .where('pin', isEqualTo: pin)
+            .where('pin', isEqualTo: hashedPin)
             .get();
+
+        if (querySnapshot.docs.isEmpty) {
+          // Fallback query for legacy plain-text PINs
+          debugPrint('🔐 [AUTH] No match with hash. Checking legacy plain-text PIN...');
+          querySnapshot = await _firestore
+              .collection('users')
+              .where('role', isEqualTo: 'driver')
+              .where('name', isEqualTo: name)
+              .where('pin', isEqualTo: pin)
+              .get();
+        }
 
         debugPrint(
           '🔐 [AUTH] Query returned ${querySnapshot.docs.length} documents',
@@ -244,8 +265,9 @@ class AuthService {
             '🔐 [AUTH] Name-only query returned ${nameOnlyQuery.docs.length} documents',
           );
           if (nameOnlyQuery.docs.isNotEmpty) {
+            final storedDbPin = nameOnlyQuery.docs.first.data()['pin'];
             debugPrint(
-              '🔐 [AUTH] Found driver by name, but PIN mismatch. Sent PIN: "$pin" | Stored PIN: "${nameOnlyQuery.docs.first.data()['pin']}"',
+              '🔐 [AUTH] Found driver by name, but PIN mismatch. Stored PIN in DB: "$storedDbPin" | Entered PIN: "$pin" (hashed: "$hashedPin")',
             );
           }
         }
@@ -329,6 +351,7 @@ class AuthService {
       await prefs.setString('deviceSerialNo', effectiveSerialNo);
       await prefs.setString('serialNo', effectiveSerialNo);
       await prefs.setString('userEmail', email); // keep email separately
+      await prefs.setString('photoUrl', userData['photoUrl'] ?? '');
 
       // Immediately cache this driver for offline use
       final String? cachedStr = prefs.getString('cached_drivers');
@@ -482,6 +505,22 @@ class AuthService {
                 })
                 .toList();
             await prefs.setString('cached_drivers', jsonEncode(driversList));
+
+            // Sync currently logged-in driver's photoUrl and name if matching
+            final String? currentDriverId = prefs.getString('driverId');
+            if (currentDriverId != null && currentDriverId.isNotEmpty) {
+              final Map<String, dynamic> currentDriver = driversList.firstWhere(
+                (d) => d['id'] == currentDriverId,
+                orElse: () => <String, dynamic>{},
+              );
+              if (currentDriver.isNotEmpty) {
+                final newPhotoUrl = currentDriver['photoUrl'] ?? '';
+                final newDriverName = currentDriver['name'] ?? '';
+                await prefs.setString('photoUrl', newPhotoUrl);
+                await prefs.setString('driverName', newDriverName);
+                debugPrint('AUTH_SERVICE: Synced active driver photoUrl: "$newPhotoUrl" and name: "$newDriverName"');
+              }
+            }
           }
           return true;
         } else {
@@ -645,6 +684,7 @@ class AuthService {
     await prefs.remove('userRole');
     await prefs.remove('driverName');
     await prefs.remove('driverId');
+    await prefs.remove('photoUrl');
     // deviceSerialNo is intentionally kept
   }
 

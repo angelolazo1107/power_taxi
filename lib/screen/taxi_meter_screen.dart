@@ -24,33 +24,16 @@ class TaxiMeterScreen extends StatefulWidget {
 class _TaxiMeterScreenState extends State<TaxiMeterScreen>
     with WidgetsBindingObserver {
   // --- Black & Orange Color Palette ---
-  static const Color bgColor      = Color(0xFF0A0C0F); // Deepest black
   static const Color panelColor   = Color(0xFF111418); // Slightly lighter panels
   static const Color accentOrange      = Color(0xFFFF7121); // Primary orange
-  static const Color lightAccentOrange = Color(0xFFFFA726); // Lighter, more vibrant orange
   static const Color textFaint    = Color(0xFF6B7280); // Faint gray text
-  static const Color borderColor  = Color(0xFF1E2430); // Subtle dark borders
 
   bool _isLoggedIn = false;
   String? _driverId;
   String _driverName = 'DRIVER';
+  String? _photoUrl;
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
-
-  // ── Dialog Button Callbacks (set when a dialog is open) ───────────────────
-  // When a confirmation/discount dialog is open, F4 = confirm, F6 = cancel.
-  VoidCallback? _dialogConfirmCallback;
-  VoidCallback? _dialogCancelCallback;
-
-  void _registerDialogCallbacks(VoidCallback onConfirm, VoidCallback onCancel) {
-    _dialogConfirmCallback = onConfirm;
-    _dialogCancelCallback = onCancel;
-  }
-
-  void _clearDialogCallbacks() {
-    _dialogConfirmCallback = null;
-    _dialogCancelCallback = null;
-  }
 
   // ── Howen MDT Hero AT5 Hardware Buttons ──────────────────────────────────
   // Native Android intercepts Game Button key events in MainActivity.kt via
@@ -68,13 +51,6 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
 
     debugPrint('🎮 Native Button $idx received from Android');
 
-    // ── Dialog mode: route to dialog actions when a dialog is open ──────────
-    if (_dialogConfirmCallback != null || _dialogCancelCallback != null) {
-      if (idx == 4) { debugPrint('🎮 F4 → DIALOG CONFIRM'); _dialogConfirmCallback?.call(); }
-      if (idx == 6) { debugPrint('🎮 F6 → DIALOG CANCEL');  _dialogCancelCallback?.call();  }
-      return;
-    }
-
     // ── Meter screen actions ──────────────────────────────────────────
     if (idx == 4) {
       // F4: START RIDE / NEW RIDE
@@ -84,7 +60,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
       if (state is MeterStopped && state.fare > 0) {
         bloc.add(ResetMeter());
       } else {
-        _showStartTripConfirmation(context);
+        bloc.add(StartRide(_driverId ?? 'unknown'));
       }
     } else if (idx == 5) {
       // F5: WAIT toggle while running | RESUME when paused | PRINT when stopped
@@ -103,7 +79,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
       // F6: FINISH RIDE
       debugPrint('🎮 F6 → FINISH RIDE');
       if (state is MeterRunning || state is MeterPaused) {
-        _showDiscountDialog(context);
+        bloc.add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
       }
     }
   }
@@ -159,11 +135,13 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
 
     final driverId = prefs.getString('driverId');
     final driverName = prefs.getString('driverName') ?? 'DRIVER';
+    final photoUrl = prefs.getString('photoUrl');
 
     setState(() {
       _isLoggedIn = isLoggedIn;
       _driverId = driverId;
       _driverName = driverName;
+      _photoUrl = photoUrl;
     });
 
     if (isLoggedIn && mounted) {
@@ -291,9 +269,11 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
     );
 
     if (confirm == true) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', false); // Clear session
-      await prefs.remove('driverId');
+      try {
+        await AuthService().logout();
+      } catch (e) {
+        debugPrint('Logout failed: $e');
+      }
       
       // Also ensure we reset the meter if they log out while running/paused
       if (mounted) {
@@ -335,10 +315,9 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isShallow = size.height < 700;
-    final hScale = (size.height / 760).clamp(0.7, 1.2); 
     
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0B0E14),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(isShallow ? 4.0 : 8.0),
@@ -375,39 +354,32 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor, width: 1.5),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildTopBar(isShallow),
-                      Expanded(
-                        child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
-                          builder: (context, state) {
-                            return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: isShallow ? 16.0 : 24.0),
-                              child: Column(
-                                children: [
-                                  SizedBox(height: isShallow ? 8 : 16),
-                                  Expanded(child: _buildHeroPanel(state, hScale, isShallow)),
-                                  SizedBox(height: isShallow ? 12 : 24),
-                                  SizedBox(
-                                    height: (160 * hScale).clamp(110.0, 180.0),
-                                    child: _buildTelemetryRow(state, hScale, isShallow),
-                                  ),
-                                  SizedBox(height: isShallow ? 6 : 10),
-                                ],
+                Column(
+                  children: [
+                    _buildTopBar(),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
+                        builder: (context, state) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Left Sidebar (Actions)
+                              SizedBox(
+                                width: 180,
+                                child: _buildLeftActions(state),
                               ),
-                            );
-                          },
-                        ),
+                              const SizedBox(width: 12),
+                              // Middle Panel (Hero + Stats)
+                              Expanded(
+                                child: _buildStatsAndProfile(state),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                      _buildFooter(isShallow),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 // Settings overlay: always positioned over the full screen area
                 Positioned.fill(
@@ -418,7 +390,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
                     },
                   ),
                 ),
-                ],
+              ],
             ),
           ),
         ),
@@ -426,1130 +398,698 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
     );
   }
 
-  Widget _buildTopBar(bool isShallow) {
-    final dateStr = DateFormat('EEE, MMM d, yyyy').format(_currentTime).toUpperCase();
-    final timeStr = DateFormat('hh:mm:ss a').format(_currentTime);
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isShallow ? 16 : 24, vertical: isShallow ? 8 : 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: borderColor)),
-      ),
+  Widget _buildTopBar() {
+    final timeStr = DateFormat('hh:mm a').format(_currentTime);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left: Branding
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: accentOrange,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(
-                  child: Icon(Icons.bolt, color: Colors.black, size: 28),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      text: 'POWERTAXI ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        letterSpacing: 1.2,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'METRO',
-                          style: TextStyle(color: accentOrange),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    'LTFRB COMPLIANT • V2.4',
-                    style: TextStyle(
-                      color: textFaint,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          
-          // Right: Time & Login Status
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    dateStr,
-                    style: const TextStyle(
-                      color: accentOrange,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  Text(
-                    timeStr,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // --- Recent Trips button ---
-              BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
-                builder: (context, state) {
-                  return IconButton(
-                    tooltip: 'Recent Trips',
-                    onPressed: () => _showRecentTripsPanel(context),
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E222A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: borderColor),
-                      ),
-                      child: const Icon(Icons.history, color: accentOrange, size: 18),
-                    ),
-                  );
-                },
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.white70, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _showSettingsOverlay(context),
               ),
               const SizedBox(width: 8),
-              // --- Profile chip: visible only when logged in, shows settings on tap ---
-              if (_isLoggedIn)
-                GestureDetector(
-                  onTap: () => _showSettingsOverlay(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E222A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Avatar circle
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: accentOrange.withAlpha(30),
-                          child: Text(
-                            _driverName.isNotEmpty ? _driverName[0].toUpperCase() : 'D',
-                            style: const TextStyle(color: accentOrange, fontWeight: FontWeight.w900, fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'DRIVER',
-                              style: TextStyle(color: textFaint, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                            ),
-                            Text(
-                              _driverName.toUpperCase(),
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 10),
-                        const Icon(Icons.expand_more, color: textFaint, size: 16),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ElevatedButton.icon(
-                  onPressed: _showLoginOverlay,
-                  icon: const Icon(Icons.login, size: 16),
-                  label: const Text('DRIVER LOGIN'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accentOrange,
-                    foregroundColor: Colors.black,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                  ),
-                ),
-              // --- Logout icon button: visible only when logged in ---
-              if (_isLoggedIn) ...
-                [
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Logout',
-                    onPressed: _handleLogout,
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E222A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: borderColor),
-                      ),
-                      child: const Icon(Icons.logout, color: Colors.redAccent, size: 18),
-                    ),
-                  ),
-                ],
+              const Text(
+                'DIGITAL TAXI METER',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0),
+              ),
+              const SizedBox(width: 24),
+              Text(
+                'ABC-1234', // In a real app, use state.plateNo
+                style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
+          Row(
+            children: [
+              _buildTopStatusItem('SHIFT: ACTIVE', const Color(0xFF2E7D32)),
+              const SizedBox(width: 16),
+              _buildTopStatusItem('READY', Colors.blue, icon: Icons.location_on),
+              const SizedBox(width: 16),
+              _buildTopStatusItem('ONLINE', Colors.greenAccent, icon: Icons.wifi),
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  const Icon(Icons.access_time, color: Colors.white54, size: 14),
+                  const SizedBox(width: 4),
+                  Text(timeStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          )
         ],
       ),
     );
   }
 
-  Widget _buildHeroPanel(TaxiMeterState state, double hScale, bool isShallow) {
-    // Determine status badge
-    String statusText = 'IDLE';
-    if (state is MeterRunning) {
-      statusText = 'RUNNING';
-    } else if (state is MeterPaused) {
-      statusText = 'PAUSED';
-    }
-
-    // Formatting the fare dynamically. E.g 150.50 -> "150", ".50"
-    final fareStr = state.fare.toStringAsFixed(2);
-    final parts = fareStr.split('.');
-    final wholeStr = parts[0];
-    final decStr = parts.length > 1 ? '.${parts[1]}' : '.00';
-
-    return Stack(
+  Widget _buildTopStatusItem(String text, Color color, {IconData? icon}) {
+    return Row(
       children: [
-        // Background Grid (Optional aesthetic imitating wireframe faint dots)
-        Positioned.fill(
-          child: Opacity(
-            opacity: 0.02,
-            child: CustomPaint(
-              painter: GridPainter(),
-            ),
-          ),
-        ),
-        
-        // Panel contents
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: panelColor.withAlpha(128),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor),
-          ),
-          child: Stack(
-            children: [
-               // Top Left Status Pills
-              Positioned(
-                top: isShallow ? 16 : 24,
-                left: isShallow ? 16 : 24,
-                child: Row(
-                  children: [
-                    _buildPill(Icons.bolt, statusText, isActive: state is MeterRunning, isShallow: isShallow),
-                    SizedBox(width: isShallow ? 8 : 12),
-                    _buildPill(Icons.location_on, 'METRO MANILA', isShallow: isShallow),
-                  ],
-                ),
-              ),
-
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'TOTAL FARE AMOUNT',
-                      style: TextStyle(
-                        color: textFaint,
-                        fontSize: (14 * hScale).clamp(10.0, 16.0),
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: isShallow ? 2.0 : 4.0,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Main Fare Row with FittedBox to prevent overflow
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 24.0 * hScale, right: 12),
-                            child: Text(
-                              '₱',
-                              style: TextStyle(
-                                  color: accentOrange,
-                                  fontSize: (48 * hScale).clamp(32.0, 56.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1),
-                            ),
-                          ),
-                          Text(
-                            wholeStr,
-                            style: TextStyle(
-                              color: lightAccentOrange,
-                              fontSize: (180 * hScale).clamp(100.0, 200.0),
-                              fontWeight: FontWeight.w900,
-                              height: 1.0,
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 24.0 * hScale, left: 4),
-                            child: Text(
-                              decStr,
-                              style: TextStyle(
-                                color: lightAccentOrange.withAlpha(200),
-                                fontSize: (64 * hScale).clamp(40.0, 72.0),
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: isShallow ? 12 : 24),
-                    _buildMainActionButton(state, hScale, isShallow),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        if (icon != null) ...[
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+        ],
+        Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
       ],
     );
   }
 
-  Widget _buildMainActionButton(TaxiMeterState state, double hScale, bool isShallow) {
-    if (!_isLoggedIn) {
-      return GestureDetector(
-        onTap: () => _showLoginOverlay(),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 32, vertical: isShallow ? 12 : 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E222A), // Faint grey button
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, color: textFaint, size: isShallow ? 16 : 20),
-              const SizedBox(width: 8),
-              Text(
-                'LOGIN TO START',
-                style: TextStyle(
-                  color: textFaint,
-                  fontWeight: FontWeight.bold,
-                  fontSize: isShallow ? 12 : 14,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  Widget _buildLeftActions(TaxiMeterState state) {
+    bool isInitial = state is MeterInitial;
+    bool isRunning = state is MeterRunning;
+    bool isStopped = state is MeterStopped;
 
-    // Handlers mapped from old UI logic
-    if (state is MeterRunning) {
-      final running = state;
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // WAIT button — toggles waiting mode
-          GestureDetector(
-            onTap: () {
-              if (running.isWaiting) {
-                context.read<TaxiMeterBloc>().add(StopWaiting());
-              } else {
-                context.read<TaxiMeterBloc>().add(StartWaiting());
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 32, vertical: isShallow ? 14 : 20),
-              decoration: BoxDecoration(
-                color: running.isWaiting
-                    ? Colors.orangeAccent.withAlpha(30)
-                    : const Color(0xFF1E222A),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: running.isWaiting ? Colors.orangeAccent : borderColor,
-                  width: running.isWaiting ? 1.5 : 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    running.isWaiting ? Icons.hourglass_top : Icons.pause,
-                    color: running.isWaiting ? Colors.orangeAccent : textFaint,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    running.isWaiting ? 'WAITING...' : 'WAIT',
-                    style: TextStyle(
-                      color: running.isWaiting ? Colors.orangeAccent : textFaint,
-                      fontWeight: FontWeight.w900,
-                      fontSize: isShallow ? 12 : 14,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // FINISH button — ends the ride
-          ElevatedButton.icon(
-            onPressed: () => _showDiscountDialog(context),
-            icon: const Icon(Icons.stop, size: 20),
-            label: const Text('FINISH'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B1A1A),
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.redAccent),
-              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 40, vertical: isShallow ? 14 : 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: TextStyle(fontSize: isShallow ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-            ),
-          ),
-        ],
-      );
-    } else if (state is MeterPaused) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ElevatedButton.icon(
-            onPressed: () {
-              context.read<TaxiMeterBloc>().add(ResumeRide());
-            },
-            icon: const Icon(Icons.play_arrow, size: 20),
-            label: const Text('RESUME'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentOrange,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-            ),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              _showDiscountDialog(context);
-            },
-            icon: const Icon(Icons.stop, size: 20),
-            label: const Text('END RIDE'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1C0909),
-              foregroundColor: Colors.redAccent,
-              side: const BorderSide(color: Colors.redAccent),
-              padding: EdgeInsets.symmetric(horizontal: isShallow ? 24 : 32, vertical: isShallow ? 14 : 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: TextStyle(fontSize: isShallow ? 14 : 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-            ),
-          ),
-        ],
-      );
-    } else if (state is MeterStopped && state.fare > 0) {
-      return Row(
-         mainAxisSize: MainAxisSize.min,
-         children: [
-            ElevatedButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) {
-                    return BlocProvider.value(
-                      value: context.read<TaxiMeterBloc>(),
-                      child: ReceiptPreviewDialog(state: state),
-                    );
-                  },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _buildActionButton('VACANT', isActive: isInitial, activeColor: const Color(0xFF8BAE3A), onTap: () {
+          if (isStopped || isInitial) {
+            context.read<TaxiMeterBloc>().add(ResetMeter());
+          }
+        })),
+        const SizedBox(height: 8),
+        Expanded(child: _buildActionButton('HIRED', isActive: isRunning, activeColor: Colors.lightBlueAccent, onTap: () {
+          if (isInitial && _isLoggedIn) {
+            context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
+          } else if (!_isLoggedIn) {
+            _showLoginOverlay();
+          }
+        })),
+        const SizedBox(height: 8),
+        Expanded(child: _buildActionButton('STOP/PRINT', isActive: isStopped, activeColor: Colors.redAccent, onTap: () {
+          if (isRunning) {
+            context.read<TaxiMeterBloc>().add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
+          } else if (isStopped && state.fare > 0) {
+            showDialog(
+              context: context,
+              builder: (dialogContext) {
+                return BlocProvider.value(
+                  value: context.read<TaxiMeterBloc>(),
+                  child: ReceiptPreviewDialog(state: state),
                 );
               },
-              icon: const Icon(Icons.print, size: 20),
-              label: const Text('PRINT'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1C2230),
-                foregroundColor: Colors.white70,
-                side: const BorderSide(color: Color(0xFF2E3A50)),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-              ),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                context.read<TaxiMeterBloc>().add(ResetMeter());
-              },
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text('NEW RIDE'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accentOrange,
-                foregroundColor: Colors.black,
-                elevation: 8,
-                shadowColor: accentOrange.withAlpha(100),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-              ),
-            ),
-         ],
-      );
-    }
+            );
+          }
+        })),
+        const SizedBox(height: 8),
+        Expanded(child: _buildActionButton('MEMORY', isActive: false, onTap: () {
+          _showRecentTripsPanel(context);
+        })),
+      ],
+    );
+  }
 
-    // Default Idle State logged in — START RIDE
-    return ElevatedButton.icon(
-      onPressed: () => _showStartTripConfirmation(context),
-      icon: const Icon(Icons.play_arrow, size: 24),
-      label: const Text('START RIDE'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
-        elevation: 12,
-        shadowColor: const Color(0xFF2E7D32).withAlpha(120),
-        padding: EdgeInsets.symmetric(horizontal: isShallow ? 32 : 48, vertical: isShallow ? 14 : 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: TextStyle(fontSize: isShallow ? 16 : 18, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+  Widget _buildActionButton(String title, {required bool isActive, Color activeColor = const Color(0xFF2A8BD4), required VoidCallback onTap}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isActive ? activeColor.withOpacity(0.8) : const Color(0xFF222A3A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isActive ? activeColor : const Color(0xFF38445A),
+          width: 2.0,
+        ),
+        boxShadow: isActive ? [
+          BoxShadow(
+            color: activeColor.withOpacity(0.5),
+            blurRadius: 15,
+            spreadRadius: 2,
+          )
+        ] : [],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isActive ? Colors.white : const Color(0xFFB0C4DE),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildTelemetryRow(TaxiMeterState state, double hScale, bool isShallow) {
-    // Computed values
-    final distKm = (state.distanceMeters / 1000).toStringAsFixed(2);
+  Widget _buildStatsAndProfile(TaxiMeterState state) {
+    if (state is MeterStopped) {
+      return _buildPrintViewPanel(state);
+    }
+
+    final double roundedFare = (state.fare * 4).roundToDouble() / 4;
+    final fareStr = roundedFare.toStringAsFixed(2);
+    final distKm = (state.distanceMeters / 1000).toStringAsFixed(1);
     
     final tSecs = state.elapsedSeconds;
     final tM = (tSecs / 60).floor().toString().padLeft(2, '0');
     final tS = (tSecs % 60).toString().padLeft(2, '0');
     final timeStr = "$tM:$tS";
 
-    final wSecs = state.waitingSeconds;
-    final wM = (wSecs / 60).floor().toString().padLeft(2, '0');
-    final wS = (wSecs % 60).toString().padLeft(2, '0');
-    final waitStr = "$wM:$wS";
-
-    // Simulate speed temporarily since old code hardcoded 0. 
-    // Usually this is calculated as dx/dt.
-    final speed = state is MeterRunning ? "45" : "0";
-
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: _buildTelemetryCard('DISTANCE',  Icons.navigation,          distKm,  'KM',   accentOrange, isShallow, hScale)),
-        SizedBox(width: isShallow ? 8 : 16),
-        Expanded(child: _buildTelemetryCard('TRIP TIME', Icons.access_time,          timeStr, 'MIN',  const Color(0xFFFFB347), isShallow, hScale)),
-        SizedBox(width: isShallow ? 8 : 16),
-        Expanded(child: _buildTelemetryCard('WAITING',   Icons.pause_circle_outline, waitStr, 'MIN',  const Color(0xFFFF5722), isShallow, hScale)),
-        SizedBox(width: isShallow ? 8 : 16),
-        Expanded(child: _buildTelemetryCard('SPEED',     Icons.speed,                speed,   'KM/H', lightAccentOrange, isShallow, hScale)),
+        // Middle Stats - Lime Green
+        Expanded(
+          flex: 3,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFC4F26B),
+              border: Border.all(color: Colors.black, width: 6),
+            ),
+            child: Column(
+              children: [
+                // Top: Fare
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
+                    ),
+                    child: Stack(
+                      children: [
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3a3f47),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.remove, color: Colors.white, size: 20),
+                                const SizedBox(width: 16),
+                                Container(
+                                  width: 20, height: 20,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 8, height: 8,
+                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                const Icon(Icons.add, color: Colors.white, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              const Text(
+                                'P',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 80,
+                                  fontWeight: FontWeight.w900,
+                                  decoration: TextDecoration.lineThrough,
+                                  decorationStyle: TextDecorationStyle.double,
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Text(
+                                fareStr,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 160,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Middle: Distance & Time
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: const BoxDecoration(
+                              border: Border(right: BorderSide(color: Colors.black, width: 6)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'DISTANCE KM:',
+                                  style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+                                ),
+                                const Spacer(),
+                                Center(
+                                  child: Text(
+                                    '$distKm KM',
+                                    style: const TextStyle(color: Colors.black, fontSize: 80, fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                                const Spacer(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'TIME:',
+                                  style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+                                ),
+                                const Spacer(),
+                                Center(
+                                  child: Text(
+                                    timeStr,
+                                    style: const TextStyle(color: Colors.black, fontSize: 80, fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                                const Spacer(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Bottom: Plate & Driver Name
+                Expanded(
+                  flex: 0,
+                  child: Container(
+                    height: 80,
+                    color: Colors.white,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              border: Border(right: BorderSide(color: Colors.black, width: 6)),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'NXZ-123',
+                                style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 6,
+                          child: Container(
+                            padding: const EdgeInsets.only(left: 24),
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _driverName.isNotEmpty ? _driverName.toUpperCase() : 'JUAN DELA CRUZ',
+                              style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.w900),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Right Profile - White
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.black, width: 6),
+                bottom: BorderSide(color: Colors.black, width: 6),
+                right: BorderSide(color: Colors.black, width: 6),
+              ),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 48),
+                const Text(
+                  'ID:123456',
+                  style: TextStyle(color: Colors.black, fontSize: 28, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 48),
+                Container(
+                  width: 250,
+                  height: 250,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.network(
+                    'https://randomuser.me/api/portraits/men/32.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 120, color: Colors.black),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildTelemetryCard(String title, IconData icon, String value, String unit, Color iconColor, bool isShallow, double hScale) {
-    // Separate integers and decimals if present for dynamic sizing
-    String vMain = value;
-    String vSub = "";
-    if (value.contains('.')) {
-      var pts = value.split('.');
-      vMain = "${pts[0]}.";
-      vSub = pts[1];
-    }
+  Widget _buildPrintViewPanel(MeterStopped state) {
+    final dateStr = DateFormat('MM/dd/yyyy HH:mm').format(DateTime.now());
+    final orNumber = state.rideId?.substring(0, 8).toUpperCase() ?? "00000000";
 
     return Container(
-      padding: EdgeInsets.all(isShallow ? 14 : 24),
       decoration: BoxDecoration(
-        color: panelColor,
-        borderRadius: BorderRadius.circular(isShallow ? 12 : 20),
-        border: Border.all(color: borderColor),
+        color: const Color(0xFF111418), // Deep dark black/grey background
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF1E2430), width: 4),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: borderColor.withAlpha(128),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 16),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: isShallow ? 8 : 12,
-                  letterSpacing: isShallow ? 1.0 : 2.0,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                vMain,
-                style: TextStyle(
-                  color: lightAccentOrange,
-                  fontSize: (56 * hScale).clamp(32.0, 64.0),
-                  fontWeight: FontWeight.w900,
-                  height: 1.0,
-                ),
-              ),
-              if (vSub.isNotEmpty)
-                Text(
-                  vSub,
-                  style: TextStyle(
-                    color: lightAccentOrange,
-                    fontSize: (32 * hScale).clamp(20.0, 40.0),
-                    fontWeight: FontWeight.bold,
+          // Left side: Virtual Receipt Paper
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  unit,
-                  style: const TextStyle(
-                    color: textFaint,
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildSerratedEdge(isTop: true),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            const Text(
+                              "POWER TAXI",
+                              style: TextStyle(
+                                fontFamily: 'Courier',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            const Text(
+                              "METRO TRANSPORT SERVICES",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Courier',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const Divider(color: Colors.black26),
+                            _receiptRow("OR NO:", orNumber),
+                            _receiptRow("DATE:", dateStr),
+                            _receiptRow("PLATE:", state.plateNo ?? "ABC 1234"),
+                            _receiptRow("DRIVER:", state.driverName ?? "JUAN DELA CRUZ"),
+                            const Divider(color: Colors.black26),
+                            _receiptRow("DISTANCE:", "${(state.distanceMeters / 1000).toStringAsFixed(2)} KM"),
+                            _receiptRow("WAITING:", "${(state.elapsedSeconds / 60).floor()}m ${state.elapsedSeconds % 60}s"),
+                            const Divider(color: Colors.black26),
+                            _receiptRow("FLAG FARE:", "45.00"),
+                            if (state.discountAmount > 0) ...[
+                              _receiptRow("SUBTOTAL:", state.subtotal.toStringAsFixed(2)),
+                              _receiptRow(
+                                "DISCOUNT (20%):",
+                                "-${state.discountAmount.toStringAsFixed(2)}",
+                                isHighlight: true,
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                              color: Colors.black.withOpacity(0.05),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "TOTAL FARE",
+                                    style: TextStyle(
+                                      fontFamily: 'Courier',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  Text(
+                                    "P ${((state.fare * 4).roundToDouble() / 4).toStringAsFixed(2)}",
+                                    style: const TextStyle(
+                                      fontFamily: 'Courier',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Color(0xFFFF7121),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              "THANK YOU FOR RIDING WITH US!",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Courier',
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildSerratedEdge(isTop: false),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Right side: Controls (Discount selection toggle + Print Receipt action button)
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'APPLY DISCOUNT',
+                  style: TextStyle(
+                    color: Colors.white70,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(bool isShallow) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: isShallow ? 8 : 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: borderColor)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.gps_fixed, color: textFaint, size: 10),
-              const SizedBox(width: 6),
-              Text('GPS SIGNAL: STRONG', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              const SizedBox(width: 16),
-              const Icon(Icons.wifi, color: textFaint, size: 10),
-              const SizedBox(width: 6),
-              Text('NETWORK: 5G ACTIVE', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-            ],
-          ),
-          Text('© 2026 POWERTAXI METRO • SECURE ENCRYPTED SESSION', style: TextStyle(color: textFaint, fontSize: isShallow ? 7 : 8, letterSpacing: 1.0)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPill(IconData icon, String text, {bool isActive = false, bool isShallow = false}) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isShallow ? 12 : 16, vertical: isShallow ? 6 : 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E222A),
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isActive ? accentOrange : textFaint, size: isShallow ? 10 : 12),
-          const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: textFaint, fontSize: isShallow ? 8 : 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-        ],
-      ),
-    );
-  }
-
-  void _showStartTripConfirmation(BuildContext context) {
-    void doConfirm() {
-      _clearDialogCallbacks();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context, rootNavigator: true).pop();
-        context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
-      });
-    }
-    void doCancel() {
-      _clearDialogCallbacks();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      });
-    }
-
-    _registerDialogCallbacks(doConfirm, doCancel);
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withAlpha(204),
-      builder: (BuildContext dialogContext) {
-        return _buildStyledConfirmationDialog(
-          context: dialogContext,
-          title: 'Start New Trip?',
-          content: 'Are you sure you want to drop the flag? This will start the meter count.',
-          icon: Icons.play_arrow,
-          confirmLabel: 'START',
-          confirmColor: const Color(0xFF2E7D32),
-          onConfirm: () {
-            context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
-          },
-          onCancel: doCancel,
-        );
-      },
-    ).then((_) => _clearDialogCallbacks());
-  }
-
-  void _showDiscountDialog(BuildContext parentContext) {
-    String selectedTitle = 'REGULAR';
-    double selectedRate = 0.0;
-
-    void doConfirm() {
-      _clearDialogCallbacks();
-      // Use postFrameCallback to avoid calling Navigator from within a frame
-      // callback (EventChannel), which causes the overlay error.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(parentContext, rootNavigator: true).pop();
-        parentContext.read<TaxiMeterBloc>().add(StopRide(
-          discountRate: selectedRate,
-          discountType: selectedTitle,
-        ));
-      });
-    }
-    void doCancel() {
-      _clearDialogCallbacks();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(parentContext, rootNavigator: true).pop();
-      });
-    }
-
-    _registerDialogCallbacks(doConfirm, doCancel);
-
-    final List<Map<String, dynamic>> discountOptions = [
-      {
-        'title': 'REGULAR',
-        'rate': 0.0,
-        'subtitle': 'Standard fare without adjustments',
-        'icon': Icons.person_outline,
-      },
-      {
-        'title': 'SENIOR CITIZEN',
-        'rate': 0.20,
-        'subtitle': '20% Government Mandated Discount',
-        'icon': Icons.elderly,
-      },
-      {
-        'title': 'PWD',
-        'rate': 0.20,
-        'subtitle': '20% Government Mandated Discount',
-        'icon': Icons.accessible,
-      },
-      {
-        'title': 'STUDENT',
-        'rate': 0.20,
-        'subtitle': '20% Educational Discount',
-        'icon': Icons.school_outlined,
-      },
-    ];
-
-    showDialog(
-      context: parentContext,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // NOTE: _registerDialogCallbacks is NOT called here to avoid
-            // triggering parent rebuilds on every discount selection tap.
-            // Dart closures already capture selectedRate/selectedTitle by
-            // reference, so doConfirm always reads the latest values.
-            return Dialog(
-              backgroundColor: Colors.transparent, // Using container for custom styling
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Container(
-                width: 550,
-                // Cap height so it never exceeds the Howen AT5's 600px display
-                constraints: const BoxConstraints(maxHeight: 560),
-                decoration: BoxDecoration(
-                  color: panelColor,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(150),
-                      blurRadius: 30,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Row(
                     children: [
-                      // ── Header (compact) ────────────────────────────────
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                        decoration: BoxDecoration(
-                          color: accentOrange.withAlpha(20),
-                          border: const Border(
-                            bottom: BorderSide(color: borderColor),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: accentOrange.withAlpha(40),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.confirmation_num_outlined, color: accentOrange, size: 22),
-                            ),
-                            const SizedBox(width: 16),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "TRIP DISCOUNT",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                                Text(
-                                  "Select applicable discount for this ride",
-                                  style: TextStyle(color: textFaint, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ],
+                      // DISCOUNT BUTTON
+                      Expanded(
+                        child: _buildPrintControlToggleButton(
+                          'DISCOUNT\n(20%)',
+                          isSelected: state.discountRate > 0,
+                          onTap: () {
+                            context.read<TaxiMeterBloc>().add(
+                              const ApplyStoppedDiscount(discountType: 'SENIOR', discountRate: 0.2),
+                            );
+                          },
                         ),
                       ),
-
-                      // ── Scrollable Selection Area ───────────────────────
-                      Flexible(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ...discountOptions.map((option) {
-                                bool isSelected = selectedTitle == option['title'];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10.0),
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        selectedTitle = option['title'];
-                                        selectedRate = option['rate'];
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? accentOrange.withAlpha(25) : Colors.black.withAlpha(30),
-                                        border: Border.all(
-                                          color: isSelected ? accentOrange : borderColor,
-                                          width: isSelected ? 2.0 : 1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                        boxShadow: isSelected
-                                            ? [
-                                                BoxShadow(
-                                                  color: accentOrange.withAlpha(40),
-                                                  blurRadius: 10,
-                                                  offset: const Offset(0, 3),
-                                                )
-                                              ]
-                                            : [],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: isSelected ? accentOrange : panelColor,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: isSelected ? accentOrange : borderColor,
-                                              ),
-                                            ),
-                                            child: Icon(
-                                              option['icon'],
-                                              color: isSelected ? Colors.black : textFaint,
-                                              size: 18,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 14),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  option['title'],
-                                                  style: TextStyle(
-                                                    color: isSelected ? Colors.white : Colors.white70,
-                                                    fontSize: 14,
-                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  option['subtitle'],
-                                                  style: TextStyle(
-                                                    color: isSelected ? Colors.white.withAlpha(140) : textFaint,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            const Icon(Icons.check_circle, color: accentOrange, size: 20),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // ── Sticky Footer: key hints + action buttons ───────
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                        decoration: const BoxDecoration(
-                          border: Border(top: BorderSide(color: borderColor)),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Key hint row
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildKeyHint('F4', 'Confirm', accentOrange),
-                                const SizedBox(width: 16),
-                                _buildKeyHint('F6', 'Cancel', textFaint),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            // Action buttons
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: textFaint,
-                                        side: const BorderSide(color: borderColor),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      onPressed: doCancel,
-                                      child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 2,
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        elevation: 0,
-                                      ),
-                                      onPressed: doConfirm,
-                                      child: const Text(
-                                        "PROCEED TO FINALIZATION",
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      const SizedBox(width: 8),
+                      // NO DISCOUNT BUTTON
+                      Expanded(
+                        child: _buildPrintControlToggleButton(
+                          'NO\nDISCOUNT',
+                          isSelected: state.discountRate == 0,
+                          onTap: () {
+                            context.read<TaxiMeterBloc>().add(
+                              const ApplyStoppedDiscount(discountType: 'REGULAR', discountRate: 0.0),
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-
-  Widget _buildStyledConfirmationDialog({
-    required BuildContext context,
-    required String title,
-    required String content,
-    required IconData icon,
-    required String confirmLabel,
-    required Color confirmColor,
-    required VoidCallback onConfirm,
-    VoidCallback? onCancel,
-  }) {
-    return Dialog(
-      backgroundColor: panelColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: borderColor),
-      ),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Container(
-        width: 480,
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: confirmColor.withAlpha(30),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: confirmColor, size: 48),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              content,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: textFaint, fontSize: 16, height: 1.5),
-            ),
-            const SizedBox(height: 32),
-            // Button hint row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildKeyHint('F4', confirmLabel, confirmColor),
-                const SizedBox(width: 16),
-                _buildKeyHint('F6', 'Cancel', textFaint),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: borderColor),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                const SizedBox(height: 16),
+                // PRINT RECEIPT ACTION BUTTON
+                SizedBox(
+                  height: 90,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF7121), // Primary Orange
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      onPressed: onCancel ?? () => Navigator.pop(context),
-                      child: const Text('CANCEL', style: TextStyle(color: textFaint, fontWeight: FontWeight.bold)),
+                      elevation: 0,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: confirmColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        onConfirm();
-                      },
-                      child: Text(
-                        confirmLabel,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    onPressed: () {
+                      context.read<TaxiMeterBloc>().add(
+                        PrintReceipt(
+                          discountType: state.discountRate > 0 ? 'Senior' : 'Regular',
+                          discountRate: state.discountRate,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.print, size: 28),
+                    label: const Text(
+                      'PRINT RECEIPT',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Tap FOR HIRE on the left sidebar to start the next trip after printing.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Small badge shown in dialogs to hint at hardware button shortcuts.
-  Widget _buildKeyHint(String key, String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: color.withAlpha(30),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: color.withAlpha(120)),
           ),
-          child: Text(
-            key,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSerratedEdge({required bool isTop}) {
+    return SizedBox(
+      height: 6,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _SerratedPainter(isTop: isTop),
+      ),
+    );
+  }
+
+  Widget _receiptRow(String label, String value, {bool isHighlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Courier',
+              fontSize: 10,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            value,
             style: TextStyle(
-              color: color,
-              fontSize: 11,
+              fontFamily: 'Courier',
+              fontSize: 10,
               fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+              color: isHighlight ? Colors.red : Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrintControlToggleButton(String title, {required bool isSelected, required VoidCallback onTap}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFF2E7D32) : const Color(0xFF1E2430), // Green when selected, dark grey when deselected
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isSelected ? const Color(0xFF4CAF50) : const Color(0xFF2C323E),
+          width: 2,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(2),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF8B95A5),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 5),
-        Text(
-          '= $label',
-          style: TextStyle(color: color.withAlpha(180), fontSize: 11),
-        ),
-      ],
+      ),
     );
   }
+
+
+
+
+
+  
+
+
+
+
 }
 
 // Background painter for a subtle "dotted grid" matching the reference
@@ -1627,9 +1167,8 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    final isShallow = screenSize.height < 700;
-    final cardWidth = (screenSize.width * 0.46).clamp(360.0, 560.0);
-    final cardHeight = (screenSize.height * 0.80).clamp(400.0, 680.0);
+    final cardWidth = (screenSize.width * 0.95).clamp(600.0, 1000.0);
+    final cardHeight = (screenSize.height * 0.95).clamp(400.0, 800.0);
 
     return Center(
       child: Material(
@@ -1638,26 +1177,15 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
           width: cardWidth,
           height: cardHeight,
           decoration: BoxDecoration(
-            color: _bg,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _border, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(200),
-                blurRadius: 40,
-                spreadRadius: 8,
-              ),
-            ],
+            color: Colors.white,
+            border: Border.all(color: Colors.black, width: 3.0),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Column(
-              children: [
-                _buildHeader(context),
-                if (!_loading && _error == null) _buildSummaryCard(),
-                Expanded(child: _buildBody(isShallow)),
-              ],
-            ),
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(child: _buildBody(context)),
+              _buildFooter(),
+            ],
           ),
         ),
       ),
@@ -1666,212 +1194,272 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _border)),
+        border: Border(bottom: BorderSide(color: Colors.black, width: 3.0)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _orange.withAlpha(30),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _orange.withAlpha(60)),
-            ),
-            child: const Icon(Icons.history, color: _orange, size: 18),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'RECENT TRIPS',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              letterSpacing: 2.0,
+          const Expanded(
+            flex: 3,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                'Memory Summary Trips',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 28,
+                ),
+              ),
             ),
           ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: _faint, size: 20),
-            tooltip: 'Close',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final totalEarnings = _rides.fold(0.0, (sum, r) => sum + r.totalFare);
-    final totalDistKm = _rides.fold(0.0, (sum, r) => sum + r.distanceMeters) / 1000;
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _orange.withAlpha(15),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _orange.withAlpha(50)),
-      ),
-      child: Row(
-        children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'TOTAL EARNINGS (RECENT)',
-                  style: TextStyle(color: _faint, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            flex: 1,
+            child: InkWell(
+              onTap: () {
+                // Print logic
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFC4F26B), // light green
+                  border: Border(
+                    left: BorderSide(color: Colors.black, width: 3.0),
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '₱${totalEarnings.toStringAsFixed(2)}',
-                  style: const TextStyle(color: _orange, fontSize: 28, fontWeight: FontWeight.w900, height: 1.0),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Print',
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
                 ),
-              ],
+              ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'TOTAL DISTANCE',
-                style: TextStyle(color: _faint, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+          Expanded(
+            flex: 1,
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFB74D), // orange
+                  border: Border(
+                    left: BorderSide(color: Colors.black, width: 3.0),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  'back to operation',
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+                ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '${totalDistKm.toStringAsFixed(1)} KM',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.0),
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody(bool isShallow) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: _orange));
-    }
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildBody(BuildContext context) {
+    return Column(
+      children: [
+        // Table Header
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.black, width: 3.0)),
+          ),
+          child: Row(
             children: [
-              const Icon(Icons.wifi_off, color: _faint, size: 40),
-              const SizedBox(height: 12),
-              const Text('Could not load trips.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(_error!, style: const TextStyle(color: _faint, fontSize: 11), textAlign: TextAlign.center),
+              _buildHeaderCell('Date', flex: 1),
+              _buildHeaderCell('Start -Time', flex: 1),
+              _buildHeaderCell('End -Time', flex: 1),
+              _buildHeaderCell('Distance Km', flex: 1),
+              _buildHeaderCell('Fare', flex: 1, isLast: true),
             ],
           ),
         ),
-      );
-    }
-    if (_rides.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.directions_car_outlined, color: _faint, size: 40),
-            SizedBox(height: 12),
-            Text('No trips yet.', style: TextStyle(color: _faint, fontSize: 14, fontWeight: FontWeight.bold)),
-            SizedBox(height: 6),
-            Text('Completed trips will appear here.', style: TextStyle(color: _faint, fontSize: 11)),
-          ],
+        // Table Body
+        Expanded(
+          child: _loading 
+            ? const Center(child: CircularProgressIndicator(color: Colors.black))
+            : _error != null
+              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              : ListView.builder(
+                  itemCount: _rides.length,
+                  itemBuilder: (context, index) => _buildTripRow(_rides[index]),
+                ),
         ),
-      );
-    }
+      ],
+    );
+  }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _rides.length,
-      separatorBuilder: (_, __) => SizedBox(height: isShallow ? 4 : 8),
-      itemBuilder: (context, index) => _buildTripRow(_rides[index]),
+  Widget _buildHeaderCell(String text, {required int flex, bool isLast = false}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: isLast ? null : const Border(right: BorderSide(color: Colors.black, width: 3.0)),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+      ),
     );
   }
 
   Widget _buildTripRow(RideRecord ride) {
-    final dateFmt = DateFormat('MMM d').format(ride.startTime).toUpperCase();
-    final startFmt = DateFormat('hh:mm a').format(ride.startTime);
-    final endFmt = ride.endTime != null ? DateFormat('hh:mm a').format(ride.endTime!) : '--';
+    final dateFmt = DateFormat('MMMM d, yyyy').format(ride.startTime);
+    final startFmt = DateFormat('h:mm a').format(ride.startTime);
+    final endFmt = ride.endTime != null ? DateFormat('h:mm a').format(ride.endTime!) : '--';
     final distKm = (ride.distanceMeters / 1000).toStringAsFixed(1);
-    final durMin = ride.endTime != null
-        ? ride.endTime!.difference(ride.startTime).inMinutes.toString()
-        : '-';
-
-    Color statusColor = _faint;
-    if (ride.status == 'completed') statusColor = _orange;
-    if (ride.status == 'cancelled') statusColor = Colors.redAccent;
-    if (ride.status == 'running') statusColor = Colors.orangeAccent;
-
+    
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.black, width: 3.0)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: statusColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.navigation, color: statusColor, size: 14),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      dateFmt,
-                      style: const TextStyle(color: _orange, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.0),
-                    ),
-                    const Text('  |  ', style: TextStyle(color: _faint, fontSize: 11)),
-                    Text(
-                      '$startFmt - $endFmt',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.route, color: _faint, size: 11),
-                    const SizedBox(width: 4),
-                    Text('$distKm KM', style: const TextStyle(color: _faint, fontSize: 10)),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.timer_outlined, color: _faint, size: 11),
-                    const SizedBox(width: 4),
-                    Text('${durMin}M', style: const TextStyle(color: _faint, fontSize: 10)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '₱${ride.totalFare.toStringAsFixed(2)}',
-                style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 15),
-              ),
-              const SizedBox(height: 2),
-              const Text('PAID VIA CASH', style: TextStyle(color: _faint, fontSize: 9, letterSpacing: 0.8)),
-            ],
-          ),
+          _buildDataCell(dateFmt, flex: 1),
+          _buildDataCell(startFmt, flex: 1),
+          _buildDataCell(endFmt, flex: 1),
+          _buildDataCell('${distKm}Km', flex: 1),
+          _buildDataCell('₱${ride.totalFare.toStringAsFixed(0)}', flex: 1, isLast: true),
         ],
       ),
     );
   }
+
+  Widget _buildDataCell(String text, {required int flex, bool isLast = false}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: isLast ? null : const Border(right: BorderSide(color: Colors.black, width: 3.0)),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    final totalEarnings = _rides.fold(0.0, (sum, r) => sum + r.totalFare);
+    final totalDistKm = _rides.fold(0.0, (sum, r) => sum + r.distanceMeters) / 1000;
+    int totalDurMin = 0;
+    for (var r in _rides) {
+      if (r.endTime != null) {
+        totalDurMin += r.endTime!.difference(r.startTime).inMinutes;
+      }
+    }
+    final tHrs = totalDurMin ~/ 60;
+    final tMins = totalDurMin % 60;
+    final durStr = tHrs > 0 ? '${tHrs}h ${tMins}m' : '${tMins}m';
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.black, width: 3.0)),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.black, width: 3.0)),
+            ),
+            child: Text(
+              'Total trip Time: $durStr',
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.black, width: 3.0)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                const Text('Total Km: ', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                Text('${totalDistKm.toStringAsFixed(1)}Km', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                const Text('Total Fare: ', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                Text('₱${totalEarnings.toStringAsFixed(0)}', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SerratedPainter extends CustomPainter {
+  final bool isTop;
+
+  _SerratedPainter({required this.isTop});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    const int toothCount = 30;
+    final double toothWidth = size.width / toothCount;
+
+    if (isTop) {
+      path.moveTo(0, size.height);
+      for (int i = 0; i <= toothCount; i++) {
+        final double x = i * toothWidth;
+        final double y = (i % 2 == 0) ? size.height : 0.0;
+        path.lineTo(x, y);
+      }
+      path.lineTo(size.width, size.height);
+      path.close();
+    } else {
+      path.moveTo(0, 0);
+      for (int i = 0; i <= toothCount; i++) {
+        final double x = i * toothWidth;
+        final double y = (i % 2 == 0) ? 0.0 : size.height;
+        path.lineTo(x, y);
+      }
+      path.lineTo(size.width, 0);
+      path.close();
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

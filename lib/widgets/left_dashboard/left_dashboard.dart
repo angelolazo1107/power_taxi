@@ -135,9 +135,10 @@ Widget buildLeftDashboard(TaxiMeterState state) {
               children: [
                 Expanded(
                   child: _buildBottomStatBox(
-                    '${(currentDistance / 1000).toStringAsFixed(2)} km',
-                    (state.distanceMeters / 1000).toStringAsFixed(2),
+                    'DISTANCE',
+                    (currentDistance / 1000).toStringAsFixed(2),
                     Icons.location_on_outlined,
+                    suffix: ' km',
                   ),
                 ),
                 const SizedBox(width: 12),

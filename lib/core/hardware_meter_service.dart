@@ -148,6 +148,7 @@ class HardwareMeterService {
     reportTxt.writeln("THIS SERVES AS AN OFFICIAL RECEIPT");
 
     await ExportService.saveReportInfoTxt(filenamePrefix: "Receipt", content: reportTxt.toString());
+    await ExportService.appendToEJournal(reportTxt.toString());
   }
 
   Future<void> printXReading({

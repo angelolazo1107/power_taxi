@@ -1754,12 +1754,23 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               _currentPulse = snapshot.data!;
+              if (_isRecording && (_startPulse == null || _startPulse == 0)) {
+                // Safely update _startPulse on the next frame to avoid building during state mutation
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _startPulse = _currentPulse;
+                    });
+                  }
+                });
+              }
             }
 
-            final int pulsesElapsed = _startPulse == null
+            final int rawPulsesElapsed = _startPulse == null
                 ? 0
                 : (_currentPulse - _startPulse!);
-            final double calculatedK = pulsesElapsed / _knownDistanceKm;
+            final double physicalPulsesElapsed = rawPulsesElapsed / 2.0;
+            final double calculatedK = physicalPulsesElapsed / _knownDistanceKm;
 
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -1783,9 +1794,15 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
                 ),
                 const SizedBox(height: 12),
                 _pulseStat(
-                  'Pulses Captured',
-                  pulsesElapsed.toString(),
+                  'Raw Pulses Captured',
+                  rawPulsesElapsed.toString(),
                   Icons.speed,
+                ),
+                const SizedBox(height: 12),
+                _pulseStat(
+                  'Physical Pulses (Captured / 2)',
+                  physicalPulsesElapsed.toStringAsFixed(1),
+                  Icons.directions_run,
                 ),
                 const Divider(height: 32, color: _border),
                 Row(
@@ -1845,10 +1862,11 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
             ),
             icon: const Icon(Icons.save),
             onPressed: () {
-              final pulsesElapsed =
+              final int rawPulsesElapsed =
                   _currentPulse - (_startPulse ?? _currentPulse);
-              final double newK = pulsesElapsed / _knownDistanceKm;
-              if (pulsesElapsed <= 0) {
+              final double physicalPulsesElapsed = rawPulsesElapsed / 2.0;
+              final double newK = physicalPulsesElapsed / _knownDistanceKm;
+              if (physicalPulsesElapsed <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(

@@ -35,6 +35,21 @@ class AdminService {
     await _firestore.collection('companies').doc(company.id).update(company.toMap());
   }
 
+  Future<void> updateCompanyFareSettings(
+    String companyId, {
+    required double baseFare,
+    required double ratePerKm,
+    required double ratePerMinute,
+    required double distanceMultiplier,
+  }) async {
+    await _firestore.collection('companies').doc(companyId).update({
+      'baseFare': baseFare,
+      'ratePerKm': ratePerKm,
+      'ratePerMinute': ratePerMinute,
+      'distanceMultiplier': distanceMultiplier,
+    });
+  }
+
   Future<void> deleteCompany(String companyId) async {
     try {
       await _firestore.collection('companies').doc(companyId).delete();

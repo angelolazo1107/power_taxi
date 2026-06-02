@@ -40,6 +40,18 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    applicationVariants.all {
+        val buildTypeName = buildType.name
+        val versionName = flutter.versionName
+        val versionCode = flutter.versionCode
+        outputs.all {
+            val apkOutput = this as? com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            if (apkOutput != null) {
+                apkOutput.outputFileName = "powertaxi_app_v${versionName}_${versionCode}_${buildTypeName}.apk"
+            }
+        }
+    }
 }
 
 flutter {

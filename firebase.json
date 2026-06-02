@@ -1,6 +1,7 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "database": "(default)"
   },
   "flutter": {
     "platforms": {
@@ -26,7 +27,11 @@
     }
   },
   "hosting": {
-    "public": "build/web",
+    "public": "powertaxi_web_admin/dist",
+    "predeploy": [
+      "npm --prefix powertaxi_web_admin ci",
+      "npm --prefix powertaxi_web_admin run build"
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -38,5 +43,17 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "apphosting": {
+    "backendId": "powertaxi",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions"
+    ],
+    "alwaysDeployFromSource": false
   }
 }

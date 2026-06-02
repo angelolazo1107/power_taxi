@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
     private var lastTotalPulse: Long = 0L
     private var startDistancePulse: Long = 0L
     private var isMeterRunning = false
+    private var isFirstPulseOfRide = false // True until first pulse arrives after startMeter()
     private var pulsesPerKm = 500.0 // Default K-Factor
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -60,7 +61,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "updateCalibration" -> {
                         val kFactor = call.argument<Double>("pulsesPerKm") ?: 500.0
-                        pulsesPerKm = kFactor
+                        pulsesPerKm = if (kFactor > 0.0) kFactor else 500.0
                         Log.d("HowenHardware", "Calibration updated: K=$pulsesPerKm")
                         result.success(true)
                     }
@@ -128,15 +129,26 @@ class MainActivity : FlutterActivity() {
     private val oimlCallback = object : HowenManager.OimlCallback {
         override fun onOimlPluseChanged(distancePulse: Int, totalDistancePulse: Long, pulseWidth: Long) {
             lastTotalPulse = totalDistancePulse
-            
+
             if (isMeterRunning) {
-                // Howen OIML pulse is usually doubled (2 pulses per signal event)
-                // OimlActivity.java does: long Pulse = (total_pulse >> 1);
+                // On the very first pulse after the meter starts, capture a true baseline.
+                // This prevents a jump caused by startDistancePulse being 0 while
+                // totalDistancePulse is the absolute odometer value (e.g. 20,000,000).
+                if (isFirstPulseOfRide) {
+                    startDistancePulse = totalDistancePulse
+                    isFirstPulseOfRide = false
+                    Log.d("HowenHardware", "BASELINE SET: startPulse=$startDistancePulse")
+                    return // Distance is 0.0m on the very first tick — skip emit
+                }
+
+                // Howen OIML pulses are doubled (2 hardware signals per physical pulse).
+                // Reference: OimlActivity.java → long Pulse = (total_pulse >> 1);
                 val relativePulses = (totalDistancePulse - startDistancePulse) / 2.0
-                val distanceMeters = (relativePulses / pulsesPerKm) * 1000.0
-                
+                val safePulsesPerKm = if (pulsesPerKm > 0.0) pulsesPerKm else 500.0
+                val distanceMeters = (relativePulses / safePulsesPerKm) * 1000.0
+
                 Log.d("HowenHardware", "PULSE: total=$totalDistancePulse rel=$relativePulses dist=${distanceMeters}m")
-                
+
                 activity.runOnUiThread {
                     val data = mapOf(
                         "distance" to distanceMeters,
@@ -153,9 +165,12 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun startHardwareMeter() {
-        startDistancePulse = lastTotalPulse
+        // Do NOT use lastTotalPulse as baseline here — it may be 0 if no callback
+        // has fired yet. Instead, mark that the next callback should set the baseline.
+        startDistancePulse = 0L
+        isFirstPulseOfRide = true
         isMeterRunning = true
-        Log.d("HowenHardware", "Meter STARTED at pulse: $startDistancePulse")
+        Log.d("HowenHardware", "Meter STARTED — awaiting first pulse for baseline")
     }
 
     private fun stopHardwareMeter() {

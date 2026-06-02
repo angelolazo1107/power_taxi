@@ -27,6 +27,14 @@ class HardwareDistanceUpdated extends TaxiMeterEvent {
   List<Object?> get props => [newDistanceMeters];
 }
 
+class HardwarePulseUpdated extends TaxiMeterEvent {
+  final int totalPulse;
+  const HardwarePulseUpdated(this.totalPulse);
+
+  @override
+  List<Object?> get props => [totalPulse];
+}
+
 class StopRide extends TaxiMeterEvent {
   final String discountType;
   final double discountRate;
@@ -38,6 +46,16 @@ class StopRide extends TaxiMeterEvent {
 }
 
 class ResetMeter extends TaxiMeterEvent {}
+
+class ApplyStoppedDiscount extends TaxiMeterEvent {
+  final String discountType;
+  final double discountRate;
+
+  const ApplyStoppedDiscount({required this.discountType, required this.discountRate});
+
+  @override
+  List<Object?> get props => [discountType, discountRate];
+}
 
 class PauseRide extends TaxiMeterEvent {}
 
