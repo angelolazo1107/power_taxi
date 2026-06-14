@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,11 +9,14 @@ import 'package:powertaxi/bloc/taxi_meter/taxi_meter_state.dart';
 import 'package:powertaxi/models/ride_record.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/screen/login/log_in_screen.dart';
-import 'package:powertaxi/widgets/receipt_sunmi/receipt_show_dialog.dart';
 import 'package:powertaxi/widgets/settings_overlay/settings_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:powertaxi/services/auth_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:powertaxi/core/database_helper.dart';
+import 'package:powertaxi/services/tts_service.dart';
+
 
 class TaxiMeterScreen extends StatefulWidget {
   const TaxiMeterScreen({super.key});
@@ -34,6 +38,11 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   String? _photoUrl;
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
+  bool _isDiscounted = false;
+  Timer? _f1SingleTapTimer;
+  DateTime? _lastF1Press;
+  final Map<int, DateTime> _lastButtonPressTimes = {};
+  TaxiMeterState? _lastState;
 
   // ── Howen MDT Hero AT5 Hardware Buttons ──────────────────────────────────
   // Native Android intercepts Game Button key events in MainActivity.kt via
@@ -42,17 +51,112 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   static const _buttonChannel =
       EventChannel('com.ezbus.taximeter/howen_buttons');
   StreamSubscription<dynamic>? _buttonSubscription;
+  StreamSubscription<DocumentSnapshot>? _driverSubscription;
+  StreamSubscription<DocumentSnapshot>? _deviceSubscription;
+  bool _needsMaintenance = false;
+  String _maintenanceReason = '';
+  bool _isLocked = false;
+  String? _serialNo;
+
+  void _listenToDeviceUpdates(String serialNo) {
+    _deviceSubscription?.cancel();
+    _deviceSubscription = FirebaseFirestore.instance
+        .collection('devices')
+        .doc(serialNo)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && mounted) {
+        final data = snapshot.data();
+        if (data != null) {
+          setState(() {
+            _needsMaintenance = data['needsMaintenance'] ?? false;
+            _maintenanceReason = data['maintenanceReason'] ?? '';
+            _isLocked = data['isLocked'] ?? false;
+          });
+        }
+      }
+    });
+  }
+
+  void _listenToDriverUpdates(String driverId) {
+    _driverSubscription?.cancel();
+    _driverSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(driverId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        if (data != null && mounted) {
+          setState(() {
+            _driverName = data['name'] ?? _driverName;
+            _photoUrl = data['photoUrl'] ?? _photoUrl;
+          });
+        }
+      }
+    });
+  }
 
   void _onNativeButtonPressed(dynamic buttonIndex) {
     if (!mounted) return; // guard against callback after dispose
+    if (_isLocked) {
+      debugPrint('🎮 Native button ignored: Device is locked!');
+      return; // Block all hardware button actions
+    }
     final bloc  = context.read<TaxiMeterBloc>();
     final state = bloc.state;
     final idx   = buttonIndex as int;
 
+    final now = DateTime.now();
+
+    // ── Debounce check for key repeat/bouncing (except double tap) ──
+    if (idx != 1) {
+      final lastPress = _lastButtonPressTimes[idx];
+      if (lastPress != null && now.difference(lastPress).inMilliseconds < 350) {
+        debugPrint('🎮 Native Button $idx DEBOUNCED');
+        return;
+      }
+      _lastButtonPressTimes[idx] = now;
+    }
+
     debugPrint('🎮 Native Button $idx received from Android');
 
     // ── Meter screen actions ──────────────────────────────────────────
-    if (idx == 4) {
+    if (idx == 1) {
+      // F1: START SHIFT / END SHIFT (Timer-based double tap separation)
+      
+      // Debounce F1 key events within 250ms (prevent hardware button contact bounce)
+      if (_lastF1Press != null && now.difference(_lastF1Press!).inMilliseconds < 250) {
+        debugPrint('🎮 F1 DEBOUNCED');
+        return;
+      }
+      _lastF1Press = now;
+
+      if (_f1SingleTapTimer != null && _f1SingleTapTimer!.isActive) {
+        // Double Tap detected!
+        _f1SingleTapTimer!.cancel();
+        debugPrint('🎮 F1 DOUBLE TAP → END SHIFT');
+        if (!_isLoggedIn) return;
+        if (state is MeterInitial) {
+          _promptEndShiftPin();
+        }
+      } else {
+        // First tap: Start timer to wait for a potential second tap
+        _f1SingleTapTimer = Timer(const Duration(milliseconds: 400), () {
+          debugPrint('🎮 F1 SINGLE TAP → START SHIFT');
+          if (!_isLoggedIn) {
+            _showLoginOverlay();
+            return;
+          }
+          bloc.add(StartShift());
+        });
+      }
+    } else if (idx == 2) {
+      // F2: TOGGLE BREAK TIME
+      debugPrint('🎮 F2 → BREAK TIME');
+      if (!_isLoggedIn) return;
+      bloc.add(ToggleBreakTime());
+    } else if (idx == 4) {
       // F4: START RIDE / NEW RIDE
       debugPrint('🎮 F4 → START RIDE');
       if (!_isLoggedIn) { _showLoginOverlay(); return; }
@@ -79,15 +183,62 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
       // F6: FINISH RIDE
       debugPrint('🎮 F6 → FINISH RIDE');
       if (state is MeterRunning || state is MeterPaused) {
-        bloc.add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
+        bloc.add(StopRide(
+          discountType: _isDiscounted ? 'PWD/SC' : 'REGULAR',
+          discountRate: _isDiscounted ? 0.20 : 0.0,
+        ));
       }
     }
+  }
+
+  void _setDiscount(bool value, TaxiMeterState state) {
+    setState(() {
+      _isDiscounted = value;
+    });
+    if (state is MeterStopped) {
+      context.read<TaxiMeterBloc>().add(ApplyStoppedDiscount(
+        discountType: value ? 'PWD/SC' : 'REGULAR',
+        discountRate: value ? 0.20 : 0.0,
+      ));
+    }
+  }
+
+  Widget _buildDiscountButton({required String title, required bool isSelected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: isSelected ? accentOrange : Colors.grey[300],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? accentOrange : Colors.grey, width: 3),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: accentOrange.withOpacity(0.5),
+              blurRadius: 10,
+              spreadRadius: 2,
+            )
+          ] : [],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w900,
+            fontSize: 24,
+          ),
+        ),
+      ),
+    );
   }
 
 
   @override
   void initState() {
     super.initState();
+    _lastState = context.read<TaxiMeterBloc>().state;
     WidgetsBinding.instance.addObserver(this);
     _checkLoginStatus();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -103,7 +254,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
+    _f1SingleTapTimer?.cancel();
     _buttonSubscription?.cancel();
+    _driverSubscription?.cancel();
+    _deviceSubscription?.cancel();
     super.dispose();
   }
 
@@ -122,6 +276,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final effectiveSerialNo = await AuthService().getDeviceId();
 
     if (isLoggedIn) {
       try {
@@ -136,18 +291,28 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
     final driverId = prefs.getString('driverId');
     final driverName = prefs.getString('driverName') ?? 'DRIVER';
     final photoUrl = prefs.getString('photoUrl');
+    final needsMaintenance = prefs.getBool('needsMaintenance') ?? false;
+    final maintenanceReason = prefs.getString('maintenanceReason') ?? '';
 
     setState(() {
       _isLoggedIn = isLoggedIn;
       _driverId = driverId;
       _driverName = driverName;
       _photoUrl = photoUrl;
+      _needsMaintenance = needsMaintenance;
+      _maintenanceReason = maintenanceReason;
+      _serialNo = effectiveSerialNo;
     });
 
+    if (effectiveSerialNo.isNotEmpty) {
+      _listenToDeviceUpdates(effectiveSerialNo);
+    }
+
     if (isLoggedIn && mounted) {
-      final serialNo = prefs.getString('serialNo');
-      debugPrint('TAXI_METER_SCREEN: Passing Serial No to BLoC: "$serialNo"');
-      
+      if (driverId != null && driverId.isNotEmpty) {
+        _listenToDriverUpdates(driverId);
+      }
+
       context.read<TaxiMeterBloc>().add(UpdateDriverInfo(
             driverId: driverId ?? '',
             driverName: driverName,
@@ -157,10 +322,15 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             companyId: prefs.getString('companyId'),
             ptuNo: prefs.getString('ptuNo'),
             accreditationNo: prefs.getString('accreditationNo'),
-            serialNo: serialNo,
+            serialNo: effectiveSerialNo,
             tin: prefs.getString('tin'),
             minNo: prefs.getString('minNo'),
           ));
+
+      final enableShiftFlow = prefs.getBool('enableShiftFlow') ?? false;
+      context.read<TaxiMeterBloc>().add(UpdateShiftFlowEnabled(enableShiftFlow));
+    } else {
+      _driverSubscription?.cancel();
     }
   }
 
@@ -189,6 +359,516 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
       _checkLoginStatus(); // Refresh state if login succeeded
     }
   }
+
+  Future<void> _promptEndShiftPin() async {
+    String enteredPin = '';
+    
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 420,
+                padding: const EdgeInsets.all(28.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'END SHIFT',
+                      style: TextStyle(
+                        color: Color(0xFF1F2937),
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Enter your 6-digit PIN',
+                      style: TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // 6 Dots Indicators
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(6, (index) {
+                        final isFilled = index < enteredPin.length;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: isFilled ? 18 : 12,
+                          height: isFilled ? 18 : 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isFilled ? const Color(0xFFD97706) : Colors.transparent,
+                            border: Border.all(
+                              color: isFilled ? const Color(0xFFD97706) : const Color(0xFF9CA3AF),
+                              width: 2,
+                            ),
+                            boxShadow: isFilled
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFD97706).withOpacity(0.4),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    )
+                                  ]
+                                : [],
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 28),
+                    // Table-based Numpad
+                    SizedBox(
+                      width: 360,
+                      child: Table(
+                        children: [
+                          TableRow(
+                            children: [
+                              _buildEndShiftDialogNumpadButton('1', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '1');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('2', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '2');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('3', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '3');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildEndShiftDialogNumpadButton('4', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '4');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('5', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '5');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('6', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '6');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildEndShiftDialogNumpadButton('7', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '7');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('8', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '8');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('9', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '9');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildEndShiftDialogNumpadButton('C', () {
+                                setDialogState(() => enteredPin = '');
+                              }, icon: const Icon(Icons.clear_all, color: Color(0xFF4B5563), size: 28)),
+                              _buildEndShiftDialogNumpadButton('0', () {
+                                if (enteredPin.length < 6) {
+                                  setDialogState(() => enteredPin += '0');
+                                  if (enteredPin.length == 6) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildEndShiftDialogNumpadButton('⌫', () {
+                                if (enteredPin.isNotEmpty) {
+                                  setDialogState(() => enteredPin = enteredPin.substring(0, enteredPin.length - 1));
+                                }
+                              }, icon: const Icon(Icons.backspace_outlined, color: Color(0xFF4B5563), size: 28)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((pinResult) async {
+      if (pinResult != null && pinResult.length == 6 && mounted) {
+        // Authenticate
+        final authService = AuthService();
+        final hashedPin = authService.hashSha256(pinResult);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final cachedStr = prefs.getString('cached_drivers');
+          if (cachedStr == null) throw 'No drivers found';
+          final List<dynamic> cachedDrivers = jsonDecode(cachedStr);
+          bool matched = false;
+          for (var d in cachedDrivers) {
+            final storedId = d['id'] ?? d['email'];
+            if (storedId == _driverId && (d['pin'] == pinResult || d['pin'] == hashedPin)) {
+              matched = true;
+              break;
+            }
+          }
+          if (matched) {
+            context.read<TaxiMeterBloc>().add(EndShift(hashedPin));
+            await authService.logout();
+            _checkLoginStatus(); // Will reset UI to logged out state
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid PIN! Shift not ended.')));
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
+      }
+    });
+  }
+
+  Future<void> _promptOperatorPin() async {
+    String enteredPin = '';
+    
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 420,
+                padding: const EdgeInsets.all(28.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'OPERATOR ACCESS',
+                      style: TextStyle(
+                        color: Color(0xFF1F2937),
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Enter your 4-digit PIN',
+                      style: TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // 4 Dots Indicators
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(4, (index) {
+                        final isFilled = index < enteredPin.length;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: isFilled ? 18 : 12,
+                          height: isFilled ? 18 : 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isFilled ? const Color(0xFFD97706) : Colors.transparent,
+                            border: Border.all(
+                              color: isFilled ? const Color(0xFFD97706) : const Color(0xFF9CA3AF),
+                              width: 2,
+                            ),
+                            boxShadow: isFilled
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFD97706).withOpacity(0.4),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    )
+                                  ]
+                                : [],
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 28),
+                    // Table-based Numpad
+                    SizedBox(
+                      width: 360,
+                      child: Table(
+                        children: [
+                          TableRow(
+                            children: [
+                              _buildDialogNumpadButton('1', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '1');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('2', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '2');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('3', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '3');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildDialogNumpadButton('4', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '4');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('5', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '5');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('6', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '6');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildDialogNumpadButton('7', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '7');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('8', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '8');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('9', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '9');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              _buildDialogNumpadButton('C', () {
+                                setDialogState(() => enteredPin = '');
+                              }, icon: const Icon(Icons.clear_all, color: Color(0xFF4B5563), size: 28)),
+                              _buildDialogNumpadButton('0', () {
+                                if (enteredPin.length < 4) {
+                                  setDialogState(() => enteredPin += '0');
+                                  if (enteredPin.length == 4) {
+                                    Navigator.pop(context, enteredPin);
+                                  }
+                                }
+                              }),
+                              _buildDialogNumpadButton('⌫', () {
+                                if (enteredPin.isNotEmpty) {
+                                  setDialogState(() => enteredPin = enteredPin.substring(0, enteredPin.length - 1));
+                                }
+                              }, icon: const Icon(Icons.backspace_outlined, color: Color(0xFF4B5563), size: 28)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((pinResult) async {
+      if (pinResult != null && pinResult.length == 4 && mounted) {
+        if (pinResult == '1234') {
+          _showSettingsOverlay(context);
+        } else {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.redAccent, size: 28),
+                  SizedBox(width: 12),
+                  Text('Invalid PIN', style: TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: const Text(
+                'Invalid Operator PIN!',
+                style: TextStyle(color: Color(0xFF4B5563), fontSize: 16),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFD97706)),
+                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  Widget _buildDialogNumpadButton(String text, VoidCallback onPressed, {Widget? icon}) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Colors.orange.withOpacity(0.3),
+          highlightColor: Colors.orange.withOpacity(0.1),
+          child: Container(
+            height: 70,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.withOpacity(0.25),
+                width: 1.5,
+              ),
+              color: Colors.orange.withOpacity(0.06),
+            ),
+            alignment: Alignment.center,
+            child: icon ?? Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF1F2937),
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEndShiftDialogNumpadButton(String text, VoidCallback onPressed, {Widget? icon}) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Colors.orange.withOpacity(0.3),
+          highlightColor: Colors.orange.withOpacity(0.1),
+          child: Container(
+            height: 70,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.withOpacity(0.25),
+                width: 1.5,
+              ),
+              color: Colors.orange.withOpacity(0.06),
+            ),
+            alignment: Alignment.center,
+            child: icon ?? Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF1F2937),
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 
   void _showRecentTripsPanel(BuildContext context) {
     // Guard: no driver logged in
@@ -326,8 +1006,41 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
                 (current.xReadingPerformed && !previous.xReadingPerformed) ||
                 (current.zReadingPerformed && !previous.zReadingPerformed) ||
                 (current.remittancePerformed && !previous.remittancePerformed) ||
-                (current.activityLogPrinted && !previous.activityLogPrinted),
+                (current.activityLogPrinted && !previous.activityLogPrinted) ||
+                (current.runtimeType != previous.runtimeType) ||
+                (current.isOnBreak != previous.isOnBreak),
             listener: (context, state) {
+              final previous = _lastState;
+              _lastState = state;
+
+              if (previous != null) {
+                // Break notifications
+                if (!previous.isOnBreak && state.isOnBreak) {
+                  TtsService().speak("Naka-break ang driver.");
+                } else if (previous.isOnBreak && !state.isOnBreak) {
+                  TtsService().speak("Tapos na ang break.");
+                }
+
+                // Meter status transitions
+                if (previous.runtimeType != state.runtimeType) {
+                  if (state is MeterRunning) {
+                    if (previous is MeterPaused) {
+                      TtsService().speak("Itinuloy ang biyahe.");
+                    } else {
+                      TtsService().speak("Mabuhay! Nagsimula na ang biyahe. Mag-ingat po sa daan.");
+                    }
+                  } else if (state is MeterPaused) {
+                    TtsService().speak("Naka-hinto ang meter.");
+                  } else if (state is MeterStopped) {
+                    if (previous is MeterRunning || previous is MeterPaused) {
+                      final double rounded = (state.fare * 4).roundToDouble() / 4;
+                      final String fareStr = rounded % 1 == 0 ? rounded.toInt().toString() : rounded.toStringAsFixed(2);
+                      TtsService().speak("Tapos na ang biyahe. Ang kabuuang bayad ay $fareStr pesos. Maraming salamat po.");
+                    }
+                  }
+                }
+              }
+
               if (state.xReadingPerformed) {
                 _showSuccessDialog(context, "X-Reading report has been printed successfully.");
                 context.read<TaxiMeterBloc>().add(ClearReportFlags());
@@ -356,24 +1069,111 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
               children: [
                 Column(
                   children: [
-                    _buildTopBar(),
-                    const SizedBox(height: 8),
+                    BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
+                      builder: (context, state) => _buildTopBar(state),
+                    ),
+                    if (_needsMaintenance) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0x29FF7121), // Amber/Orange tint
+                          border: Border.all(color: const Color(0xFFFF7121), width: 1.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF7121), size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'VEHICLE MAINTENANCE REQUIRED',
+                                    style: TextStyle(
+                                      color: Color(0xFFFF7121),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _maintenanceReason.isNotEmpty ? _maintenanceReason : 'System inspection scheduled. Please contact dispatcher.',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ] else
+                      const SizedBox(height: 8),
                     Expanded(
                       child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
                         builder: (context, state) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          return Stack(
                             children: [
-                              // Left Sidebar (Actions)
-                              SizedBox(
-                                width: 180,
-                                child: _buildLeftActions(state),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Left Sidebar (Actions)
+                                  SizedBox(
+                                    width: 240,
+                                    child: _buildLeftActions(state),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Middle Panel (Hero + Stats)
+                                  Expanded(
+                                    child: _buildStatsAndProfile(state),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              // Middle Panel (Hero + Stats)
-                              Expanded(
-                                child: _buildStatsAndProfile(state),
-                              ),
+                              if (state.shiftFlowEnabled && (!state.isShiftActive || state.isOnBreak))
+                                Positioned.fill(
+                                  child: Container(
+                                    color: Colors.black87,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            state.isOnBreak ? Icons.coffee : Icons.lock_clock,
+                                            color: state.isOnBreak ? Colors.orange : Colors.redAccent,
+                                            size: 80,
+                                          ),
+                                          const SizedBox(height: 20),
+                                          Text(
+                                            state.isOnBreak ? 'DRIVER ON BREAK' : 'SHIFT INACTIVE',
+                                            style: TextStyle(
+                                              color: state.isOnBreak ? Colors.orange : Colors.redAccent,
+                                              fontSize: 48,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            state.isOnBreak ? 'Press F2 to Resume Shift' : 'Press F1 to Start Shift',
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 24,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                             ],
                           );
                         },
@@ -386,10 +1186,67 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
                   child: BlocBuilder<TaxiMeterBloc, TaxiMeterState>(
                     builder: (context, state) {
                       if (!state.showSettings) return const SizedBox.shrink();
-                      return buildSettingsOverlay(context, state);
+                      return buildSettingsOverlay(context, state, _handleLogout);
                     },
                   ),
                 ),
+                if (_isLocked)
+                  Positioned.fill(
+                    child: AbsorbPointer(
+                      absorbing: true,
+                      child: Container(
+                        color: const Color(0xFF0B0E14),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.lock_outline_rounded,
+                                color: Color(0xFFFF7121),
+                                size: 100,
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'DEVICE LOCKED',
+                                style: TextStyle(
+                                  color: Color(0xFFFF7121),
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.0,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 48.0),
+                                child: Text(
+                                  'This mobile data terminal has been remotely locked by fleet administration. Please contact dispatch.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                              if (_serialNo != null && _serialNo!.isNotEmpty) ...[
+                                const SizedBox(height: 40),
+                                Text(
+                                  'DEVICE SERIAL: $_serialNo',
+                                  style: const TextStyle(
+                                    color: Colors.white24,
+                                    fontFamily: 'monospace',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -398,8 +1255,27 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(TaxiMeterState state) {
     final timeStr = DateFormat('hh:mm a').format(_currentTime);
+    
+    // Determine Shift Label
+    String shiftLabel = 'SHIFT: N/A';
+    Color shiftColor = Colors.grey;
+    if (state.shiftFlowEnabled) {
+      if (state.isShiftActive) {
+        if (state.isOnBreak) {
+          shiftLabel = 'ON BREAK';
+          shiftColor = Colors.orange;
+        } else {
+          shiftLabel = 'SHIFT: ACTIVE';
+          shiftColor = const Color(0xFF2E7D32);
+        }
+      } else {
+        shiftLabel = 'SHIFT: INACTIVE';
+        shiftColor = Colors.redAccent;
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       child: Row(
@@ -411,7 +1287,10 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
                 icon: const Icon(Icons.settings, color: Colors.white70, size: 18),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: () => _showSettingsOverlay(context),
+                onPressed: () {
+                  if (state.shiftFlowEnabled && !state.isShiftActive) return;
+                  _promptOperatorPin();
+                },
               ),
               const SizedBox(width: 8),
               const Text(
@@ -420,15 +1299,17 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
               ),
               const SizedBox(width: 24),
               Text(
-                'ABC-1234', // In a real app, use state.plateNo
+                state.plateNo ?? 'ABC-1234',
                 style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           Row(
             children: [
-              _buildTopStatusItem('SHIFT: ACTIVE', const Color(0xFF2E7D32)),
-              const SizedBox(width: 16),
+              if (state.shiftFlowEnabled) ...[
+                _buildTopStatusItem(shiftLabel, shiftColor),
+                const SizedBox(width: 16),
+              ],
               _buildTopStatusItem('READY', Colors.blue, icon: Icons.location_on),
               const SizedBox(width: 16),
               _buildTopStatusItem('ONLINE', Colors.greenAccent, icon: Icons.wifi),
@@ -472,7 +1353,6 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             context.read<TaxiMeterBloc>().add(ResetMeter());
           }
         })),
-        const SizedBox(height: 8),
         Expanded(child: _buildActionButton('HIRED', isActive: isRunning, activeColor: Colors.lightBlueAccent, onTap: () {
           if (isInitial && _isLoggedIn) {
             context.read<TaxiMeterBloc>().add(StartRide(_driverId ?? 'unknown'));
@@ -480,23 +1360,21 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             _showLoginOverlay();
           }
         })),
-        const SizedBox(height: 8),
         Expanded(child: _buildActionButton('STOP/PRINT', isActive: isStopped, activeColor: Colors.redAccent, onTap: () {
           if (isRunning) {
-            context.read<TaxiMeterBloc>().add(const StopRide(discountType: 'REGULAR', discountRate: 0.0));
+            context.read<TaxiMeterBloc>().add(StopRide(
+              discountType: _isDiscounted ? 'PWD/SC' : 'REGULAR',
+              discountRate: _isDiscounted ? 0.20 : 0.0,
+            ));
           } else if (isStopped && state.fare > 0) {
-            showDialog(
-              context: context,
-              builder: (dialogContext) {
-                return BlocProvider.value(
-                  value: context.read<TaxiMeterBloc>(),
-                  child: ReceiptPreviewDialog(state: state),
-                );
-              },
+            context.read<TaxiMeterBloc>().add(
+              PrintReceipt(
+                discountType: state.discountRate > 0 ? 'Senior' : 'Regular',
+                discountRate: state.discountRate,
+              ),
             );
           }
         })),
-        const SizedBox(height: 8),
         Expanded(child: _buildActionButton('MEMORY', isActive: false, onTap: () {
           _showRecentTripsPanel(context);
         })),
@@ -532,7 +1410,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: isActive ? Colors.white : const Color(0xFFB0C4DE),
-                fontSize: 20,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.2,
               ),
@@ -544,18 +1422,15 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   }
 
   Widget _buildStatsAndProfile(TaxiMeterState state) {
-    if (state is MeterStopped) {
-      return _buildPrintViewPanel(state);
-    }
-
     final double roundedFare = (state.fare * 4).roundToDouble() / 4;
     final fareStr = roundedFare.toStringAsFixed(2);
-    final distKm = (state.distanceMeters / 1000).toStringAsFixed(1);
+    final distKm = (state.distanceMeters / 1000).toStringAsFixed(2).padLeft(6, '0');
     
     final tSecs = state.elapsedSeconds;
-    final tM = (tSecs / 60).floor().toString().padLeft(2, '0');
+    final tH = (tSecs / 3600).floor();
+    final tM = ((tSecs % 3600) / 60).floor().toString().padLeft(2, '0');
     final tS = (tSecs % 60).toString().padLeft(2, '0');
-    final timeStr = "$tM:$tS";
+    final timeStr = tH > 0 ? "$tH:$tM:$tS" : "$tM:$tS";
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -565,179 +1440,148 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
           flex: 3,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFC4F26B),
+              color: Colors.lightBlueAccent,
               border: Border.all(color: Colors.black, width: 6),
             ),
             child: Column(
               children: [
                 // Top: Fare
                 Expanded(
-                  flex: 1,
+                  flex: 2,
                   child: Container(
                     decoration: const BoxDecoration(
                       border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
                     ),
-                    child: Stack(
-                      children: [
-                        Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3a3f47),
-                              borderRadius: BorderRadius.circular(4),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            const Text(
+                              '₱',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 80,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.remove, color: Colors.white, size: 20),
-                                const SizedBox(width: 16),
-                                Container(
-                                  width: 20, height: 20,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.white, width: 2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Container(
-                                      width: 8, height: 8,
-                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            const SizedBox(width: 24),
+                            Text(
+                              fareStr,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 160,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Bottom: Plate & Driver Name
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    color: Colors.white,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
+                            ),
+                            child: Center(
+                              child: (state is MeterStopped)
+                                  ? Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              '${state.companyName?.isNotEmpty == true ? state.companyName!.toUpperCase() : 'COMPANY'}: ${state.bodyNo?.isNotEmpty == true ? state.bodyNo!.toUpperCase() : 'BODY-NO'}',
+                                              style: const TextStyle(color: Colors.black, fontSize: 40, fontWeight: FontWeight.w900),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          flex: 1,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            child: GestureDetector(
+                                              onTap: () => context.read<TaxiMeterBloc>().add(ResumeFromStopped()),
+                                              child: Container(
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: Colors.green[800]!, width: 3),
+                                                ),
+                                                child: const FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text('RESUME', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        '${state.companyName?.isNotEmpty == true ? state.companyName!.toUpperCase() : 'COMPANY'}: ${state.bodyNo?.isNotEmpty == true ? state.bodyNo!.toUpperCase() : 'BODY-NO'}',
+                                        style: const TextStyle(color: Colors.black, fontSize: 40, fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: (state is MeterStopped)
+                              ? Row(
+                                  children: [
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: _buildDiscountButton(
+                                          title: 'NO DISCOUNT',
+                                          isSelected: !_isDiscounted,
+                                          onTap: () => _setDiscount(false, state),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: _buildDiscountButton(
+                                          title: 'DISCOUNT',
+                                          isSelected: _isDiscounted,
+                                          onTap: () => _setDiscount(true, state),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Container(
+                                  alignment: Alignment.center,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      _driverName.isNotEmpty ? _driverName.toUpperCase() : 'JUAN DELA CRUZ',
+                                      style: const TextStyle(color: Colors.black, fontSize: 40, fontWeight: FontWeight.w900),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-                                const Icon(Icons.add, color: Colors.white, size: 20),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              const Text(
-                                'P',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 80,
-                                  fontWeight: FontWeight.w900,
-                                  decoration: TextDecoration.lineThrough,
-                                  decorationStyle: TextDecorationStyle.double,
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-                              Text(
-                                fareStr,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 160,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Middle: Distance & Time
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: const BoxDecoration(
-                              border: Border(right: BorderSide(color: Colors.black, width: 6)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'DISTANCE KM:',
-                                  style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
-                                ),
-                                const Spacer(),
-                                Center(
-                                  child: Text(
-                                    '$distKm KM',
-                                    style: const TextStyle(color: Colors.black, fontSize: 80, fontWeight: FontWeight.w900),
-                                  ),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'TIME:',
-                                  style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
-                                ),
-                                const Spacer(),
-                                Center(
-                                  child: Text(
-                                    timeStr,
-                                    style: const TextStyle(color: Colors.black, fontSize: 80, fontWeight: FontWeight.w900),
-                                  ),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Bottom: Plate & Driver Name
-                Expanded(
-                  flex: 0,
-                  child: Container(
-                    height: 80,
-                    color: Colors.white,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              border: Border(right: BorderSide(color: Colors.black, width: 6)),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'NXZ-123',
-                                style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.w900),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 6,
-                          child: Container(
-                            padding: const EdgeInsets.only(left: 24),
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              _driverName.isNotEmpty ? _driverName.toUpperCase() : 'JUAN DELA CRUZ',
-                              style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.w900),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -748,8 +1592,8 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
           ),
         ),
         // Right Profile - White
-        Expanded(
-          flex: 1,
+        SizedBox(
+          width: 240,
           child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -761,23 +1605,105 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
             ),
             child: Column(
               children: [
-                const SizedBox(height: 48),
-                const Text(
-                  'ID:123456',
-                  style: TextStyle(color: Colors.black, fontSize: 28, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 48),
-                Container(
-                  width: 250,
-                  height: 250,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
+                if (state is MeterStopped)
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Text('SCAN TO PAY', style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 8),
+                          Expanded(
+                            child: Icon(Icons.qr_code_2, size: 160, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Colors.black, width: 4)),
+                        color: Colors.lightBlueAccent,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('DISTANCE KM:', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(distKm, style: const TextStyle(color: Colors.black, fontSize: 120, fontWeight: FontWeight.w900)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.network(
-                    'https://randomuser.me/api/portraits/men/32.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 120, color: Colors.black),
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Colors.black, width: 6)),
+                        color: Colors.lightBlueAccent,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('TIME:', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(timeStr, style: const TextStyle(color: Colors.black, fontSize: 120, fontWeight: FontWeight.w900)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: AspectRatio(
+                          aspectRatio: 1.0,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: (_photoUrl != null && _photoUrl!.isNotEmpty)
+                                ? Image.network(
+                                    _photoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Image.asset('assets/images/default_driver.png', fit: BoxFit.cover),
+                                  )
+                                : Image.asset('assets/images/default_driver.png', fit: BoxFit.cover),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
                 ),
               ],
@@ -791,6 +1717,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
   Widget _buildPrintViewPanel(MeterStopped state) {
     final dateStr = DateFormat('MM/dd/yyyy HH:mm').format(DateTime.now());
     final orNumber = state.rideId?.substring(0, 8).toUpperCase() ?? "00000000";
+    final baseFareVal = context.read<TaxiMeterBloc>().baseFare;
 
     return Container(
       decoration: BoxDecoration(
@@ -854,7 +1781,7 @@ class _TaxiMeterScreenState extends State<TaxiMeterScreen>
                             _receiptRow("DISTANCE:", "${(state.distanceMeters / 1000).toStringAsFixed(2)} KM"),
                             _receiptRow("WAITING:", "${(state.elapsedSeconds / 60).floor()}m ${state.elapsedSeconds % 60}s"),
                             const Divider(color: Colors.black26),
-                            _receiptRow("FLAG FARE:", "45.00"),
+                            _receiptRow("FLAG FARE:", baseFareVal.toStringAsFixed(2)),
                             if (state.discountAmount > 0) ...[
                               _receiptRow("SUBTOTAL:", state.subtotal.toStringAsFixed(2)),
                               _receiptRow(
@@ -1132,16 +2059,17 @@ class _RecentTripsPanel extends StatefulWidget {
 }
 
 class _RecentTripsPanelState extends State<_RecentTripsPanel> {
-  static const Color _bg = Color(0xFF0F1115);
-  static const Color _panel = Color(0xFF181B21);
-  static const Color _orange = Color(0xFFFF7121);
-  static const Color _faint = Color(0xFF6B7280);
-  static const Color _border = Color(0xFF2D333B);
+
 
   StreamSubscription<List<RideRecord>>? _sub;
   List<RideRecord> _rides = [];
   bool _loading = true;
   String? _error;
+
+  // Shift Logs monitoring state
+  bool _showShiftLogs = false;
+  List<Map<String, dynamic>> _shiftLogs = [];
+  bool _loadingShifts = false;
 
   @override
   void initState() {
@@ -1156,6 +2084,29 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
             if (mounted) setState(() { _error = e.toString(); _loading = false; });
           },
         );
+    _loadShiftLogs();
+  }
+
+  Future<void> _loadShiftLogs() async {
+    setState(() {
+      _loadingShifts = true;
+    });
+    try {
+      final logs = await LocalDatabaseHelper.instance.getShiftLogs();
+      if (mounted) {
+        setState(() {
+          _shiftLogs = logs;
+          _loadingShifts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loadingShifts = false;
+        });
+      }
+    }
   }
 
   @override
@@ -1184,8 +2135,30 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
             children: [
               _buildHeader(context),
               Expanded(child: _buildBody(context)),
-              _buildFooter(),
+              if (!_showShiftLogs) _buildFooter(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFF7121) : const Color(0xFFEEEEEE),
+          border: Border.all(color: Colors.black, width: 2.0),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
           ),
         ),
       ),
@@ -1199,17 +2172,21 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             flex: 3,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(
-                'Memory Summary Trips',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 28,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  _buildTabButton('TRIPS HISTORY', !_showShiftLogs, () {
+                    setState(() => _showShiftLogs = false);
+                  }),
+                  const SizedBox(width: 16),
+                  _buildTabButton('SHIFT LOGS', _showShiftLogs, () {
+                    _loadShiftLogs();
+                    setState(() => _showShiftLogs = true);
+                  }),
+                ],
               ),
             ),
           ),
@@ -1222,7 +2199,7 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFC4F26B), // light green
+                  color: Colors.lightBlueAccent, // light blue accent
                   border: Border(
                     left: BorderSide(color: Colors.black, width: 3.0),
                   ),
@@ -1261,6 +2238,39 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
   }
 
   Widget _buildBody(BuildContext context) {
+    if (_showShiftLogs) {
+      return Column(
+        children: [
+          // Table Header
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.black, width: 3.0)),
+            ),
+            child: Row(
+              children: [
+                _buildHeaderCell('Date & Time', flex: 2),
+                _buildHeaderCell('Driver ID', flex: 1),
+                _buildHeaderCell('Shift Activity', flex: 2, isLast: true),
+              ],
+            ),
+          ),
+          // Table Body
+          Expanded(
+            child: _loadingShifts 
+              ? const Center(child: CircularProgressIndicator(color: Colors.black))
+              : _error != null
+                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                : _shiftLogs.isEmpty
+                  ? const Center(child: Text('No shift activities recorded.', style: TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold)))
+                  : ListView.builder(
+                      itemCount: _shiftLogs.length,
+                      itemBuilder: (context, index) => _buildShiftRow(_shiftLogs[index]),
+                    ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       children: [
         // Table Header
@@ -1345,6 +2355,58 @@ class _RecentTripsPanelState extends State<_RecentTripsPanel> {
           text,
           style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
         ),
+      ),
+    );
+  }
+
+  Widget _buildShiftRow(Map<String, dynamic> log) {
+    final rawTimestamp = log['timestamp'] as String;
+    final dt = DateTime.tryParse(rawTimestamp) ?? DateTime.now();
+    final dateStr = DateFormat('MMMM d, yyyy - hh:mm:ss a').format(dt);
+    
+    final driverId = log['user'] as String? ?? 'N/A';
+    final action = log['action'] as String? ?? '';
+    
+    String activityText = action;
+    Color activityColor = Colors.black;
+    if (action == 'SHIFT_START') {
+      activityText = 'Shift Started';
+      activityColor = const Color(0xFF2E7D32);
+    } else if (action == 'SHIFT_BREAK_ON') {
+      activityText = 'Break Started';
+      activityColor = Colors.orange;
+    } else if (action == 'SHIFT_BREAK_OFF') {
+      activityText = 'Break Ended / Resumed';
+      activityColor = Colors.blue;
+    } else if (action == 'SHIFT_END') {
+      activityText = 'Shift Ended / Logout';
+      activityColor = Colors.redAccent;
+    }
+    
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.black, width: 3.0)),
+      ),
+      child: Row(
+        children: [
+          _buildDataCell(dateStr, flex: 2),
+          _buildDataCell(driverId, flex: 1),
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              alignment: Alignment.center,
+              child: Text(
+                activityText,
+                style: TextStyle(
+                  color: activityColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -41,6 +41,7 @@ export interface Company {
   ratePerKm: number;
   ratePerMinute: number;
   distanceMultiplier: number;
+  enableShiftFlow?: boolean;
   createdAt?: any;
 }
 
@@ -63,6 +64,7 @@ export const subscribeToCompanies = (onUpdate: (companies: Company[]) => void) =
         ratePerKm: typeof data.ratePerKm === 'number' ? data.ratePerKm : 13.50,
         ratePerMinute: typeof data.ratePerMinute === 'number' ? data.ratePerMinute : 2.0,
         distanceMultiplier: typeof data.distanceMultiplier === 'number' ? data.distanceMultiplier : 1.0,
+        enableShiftFlow: data.enableShiftFlow || false,
         createdAt: data.createdAt
       });
     });
@@ -106,6 +108,7 @@ export const addCompany = async (
     ratePerKm?: number;
     ratePerMinute?: number;
     distanceMultiplier?: number;
+    enableShiftFlow?: boolean;
   } = {}
 ) => {
   const companiesRef = collection(db, 'companies');
@@ -116,6 +119,7 @@ export const addCompany = async (
     ratePerKm: fareSettings.ratePerKm ?? 13.50,
     ratePerMinute: fareSettings.ratePerMinute ?? 2.0,
     distanceMultiplier: fareSettings.distanceMultiplier ?? 1.0,
+    enableShiftFlow: fareSettings.enableShiftFlow ?? false,
     createdAt: new Date()
   });
 };
@@ -132,6 +136,7 @@ export const updateCompany = async (
     ratePerKm: number;
     ratePerMinute: number;
     distanceMultiplier: number;
+    enableShiftFlow: boolean;
   }
 ) => {
   const companyDocRef = doc(db, 'companies', companyId);
@@ -142,6 +147,7 @@ export const updateCompany = async (
     ratePerKm: fields.ratePerKm,
     ratePerMinute: fields.ratePerMinute,
     distanceMultiplier: fields.distanceMultiplier,
+    enableShiftFlow: fields.enableShiftFlow,
   });
 };
 
@@ -172,6 +178,12 @@ export interface Device {
   dailyTripSeconds: number;
   dailyWaitingSeconds: number;
   dailyDistanceMeters: number;
+  odometer?: number;
+  lastOilChangeOdometer?: number;
+  lastTireChangeOdometer?: number;
+  needsMaintenance?: boolean;
+  maintenanceReason?: string;
+  isLocked?: boolean;
   createdAt?: any;
 }
 
@@ -211,6 +223,12 @@ export const subscribeToDevices = (
         dailyTripSeconds: typeof data.dailyTripSeconds === 'number' ? data.dailyTripSeconds : 0,
         dailyWaitingSeconds: typeof data.dailyWaitingSeconds === 'number' ? data.dailyWaitingSeconds : 0,
         dailyDistanceMeters: typeof data.dailyDistanceMeters === 'number' ? data.dailyDistanceMeters : 0.0,
+        odometer: typeof data.odometer === 'number' ? data.odometer : 0.0,
+        lastOilChangeOdometer: typeof data.lastOilChangeOdometer === 'number' ? data.lastOilChangeOdometer : 0.0,
+        lastTireChangeOdometer: typeof data.lastTireChangeOdometer === 'number' ? data.lastTireChangeOdometer : 0.0,
+        needsMaintenance: data.needsMaintenance || false,
+        maintenanceReason: data.maintenanceReason || '',
+        isLocked: data.isLocked || false,
         createdAt: data.createdAt
       });
     });
@@ -251,6 +269,12 @@ export const addDevice = async (device: Omit<Device, 'status' | 'dailySales' | '
     dailyTripSeconds: 0,
     dailyWaitingSeconds: 0,
     dailyDistanceMeters: 0.0,
+    odometer: device.odometer || 0.0,
+    lastOilChangeOdometer: device.lastOilChangeOdometer || 0.0,
+    lastTireChangeOdometer: device.lastTireChangeOdometer || 0.0,
+    needsMaintenance: device.needsMaintenance || false,
+    maintenanceReason: device.maintenanceReason || '',
+    isLocked: device.isLocked || false,
     createdAt: serverTimestamp()
   });
 
@@ -286,8 +310,22 @@ export const updateDevice = async (device: Device) => {
     dailyTripSeconds: device.dailyTripSeconds,
     dailyWaitingSeconds: device.dailyWaitingSeconds,
     dailyDistanceMeters: device.dailyDistanceMeters,
+    odometer: device.odometer || 0.0,
+    lastOilChangeOdometer: device.lastOilChangeOdometer || 0.0,
+    lastTireChangeOdometer: device.lastTireChangeOdometer || 0.0,
+    needsMaintenance: device.needsMaintenance || false,
+    maintenanceReason: device.maintenanceReason || '',
+    isLocked: device.isLocked || false,
     createdAt: device.createdAt || serverTimestamp()
   });
+};
+
+/**
+ * Remotely lock or unlock a device
+ */
+export const toggleDeviceLock = async (serialNo: string, isLocked: boolean) => {
+  const deviceDocRef = doc(db, 'devices', serialNo);
+  await updateDoc(deviceDocRef, { isLocked });
 };
 
 /**

@@ -34,6 +34,7 @@ export const CompaniesManagement: React.FC = () => {
   const [ratePerKm, setRatePerKm] = useState('13.50');
   const [ratePerMinute, setRatePerMinute] = useState('2.00');
   const [distanceMultiplier, setDistanceMultiplier] = useState('1.00');
+  const [enableShiftFlow, setEnableShiftFlow] = useState(false);
 
   // Delete dialog state
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
@@ -63,6 +64,7 @@ export const CompaniesManagement: React.FC = () => {
     setRatePerKm('13.50');
     setRatePerMinute('2.00');
     setDistanceMultiplier('1.00');
+    setEnableShiftFlow(false);
     setIsDialogOpen(true);
   };
 
@@ -74,6 +76,7 @@ export const CompaniesManagement: React.FC = () => {
     setRatePerKm(c.ratePerKm.toString());
     setRatePerMinute(c.ratePerMinute.toString());
     setDistanceMultiplier(c.distanceMultiplier.toString());
+    setEnableShiftFlow(c.enableShiftFlow || false);
     setIsDialogOpen(true);
   };
 
@@ -94,11 +97,12 @@ export const CompaniesManagement: React.FC = () => {
         await updateCompany(editingCompany.id, {
           name,
           tin,
+          enableShiftFlow,
           ...fareFields
         });
         showToast("Company details updated successfully!");
       } else {
-        await addCompany(name, tin, fareFields);
+        await addCompany(name, tin, { ...fareFields, enableShiftFlow });
         showToast("New company registered successfully!");
       }
       setIsDialogOpen(false);
@@ -357,6 +361,32 @@ export const CompaniesManagement: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-cardColor border border-borderDark rounded-lg text-xs text-white focus:outline-none focus:border-accentOrange transition-colors"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-borderDark my-2"></div>
+
+              {/* Shift Settings */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-accentOrange font-bold text-xs shrink-0">
+                  <CheckCircle size={15} />
+                  Shift Management
+                </div>
+                <div className="flex items-center justify-between p-3 bg-cardColor border border-borderDark rounded-lg">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-white">Enable Shift Flow</div>
+                    <div className="text-[10px] text-textFaint">Requires drivers to start/end shifts using F1, F2, F3 buttons and PIN.</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={enableShiftFlow}
+                      onChange={(e) => setEnableShiftFlow(e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-borderDark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accentOrange"></div>
+                  </label>
                 </div>
               </div>
 

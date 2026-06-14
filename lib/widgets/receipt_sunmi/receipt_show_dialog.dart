@@ -22,6 +22,7 @@ class ReceiptPreviewDialog extends StatelessWidget {
 
     final dateStr = DateFormat('MM/dd/yyyy HH:mm').format(DateTime.now());
     final orNumber = s.rideId?.substring(0, 8).toUpperCase() ?? "00000000";
+    final baseFareVal = context.read<TaxiMeterBloc>().baseFare;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -115,9 +116,9 @@ class ReceiptPreviewDialog extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const Text(
-                                "VAT REG TIN: 123-456-789-00000",
-                                style: TextStyle(
+                              Text(
+                                "VAT REG TIN: ${s.tin ?? '123-456-789-00000'}",
+                                style: const TextStyle(
                                   fontFamily: 'Courier',
                                   fontSize: 10,
                                   color: Colors.black87,
@@ -131,8 +132,8 @@ class ReceiptPreviewDialog extends StatelessWidget {
                               // Transaction Info
                               _receiptRow("OR NUMBER:", orNumber),
                               _receiptRow("DATE/TIME:", dateStr),
-                              _receiptRow("PLATE NO:", "ABC 1234"),
-                              _receiptRow("DRIVER:", "JUAN DELA CRUZ"),
+                              _receiptRow("PLATE NO:", s.plateNo ?? "N/A"),
+                              _receiptRow("DRIVER:", s.driverName ?? "N/A"),
 
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 12),
@@ -155,7 +156,7 @@ class ReceiptPreviewDialog extends StatelessWidget {
                               ),
 
                               // Financials
-                              _receiptRow("FLAG DOWN FARE", "45.00"),
+                              _receiptRow("FLAG DOWN FARE", baseFareVal.toStringAsFixed(2)),
                               if (s.discountAmount > 0) ...[
                                 _receiptRow(
                                   "SUBTOTAL",

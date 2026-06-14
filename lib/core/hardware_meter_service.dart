@@ -31,6 +31,8 @@ class HardwareMeterService {
     required double subtotal,
     required double discountAmount,
     required double finalFare,
+    double? baseFare,
+    double? ratePerKm,
     bool is80mm = false,
     String? plateNo,
     String? bodyNo,
@@ -91,9 +93,12 @@ class HardwareMeterService {
 
     await SunmiPrinter.printText('------------------------------------------', style: SunmiTextStyle(align: SunmiPrintAlign.CENTER));
 
+    final actualBaseFare = baseFare ?? 50.0;
+    final actualRatePerKm = ratePerKm ?? 13.5;
+
     await SunmiPrinter.printText('FARE BREAKDOWN', style: SunmiTextStyle(align: SunmiPrintAlign.CENTER, bold: true, fontSize: bodySize));
-    await _adaptiveRow('FLAG DOWN:', 'PHP 50.00', bodySize);
-    await _adaptiveRow('DISTANCE FARE:', 'PHP ${(distanceKm * 13.5).toStringAsFixed(2)}', bodySize);
+    await _adaptiveRow('FLAG DOWN:', 'PHP ${actualBaseFare.toStringAsFixed(2)}', bodySize);
+    await _adaptiveRow('DISTANCE FARE:', 'PHP ${(distanceKm.floor() * actualRatePerKm).toStringAsFixed(2)}', bodySize);
 
     if (discountAmount > 0) {
       await _adaptiveRow('SUBTOTAL:', 'PHP ${subtotal.toStringAsFixed(2)}', bodySize);

@@ -3,6 +3,9 @@
     "rules": "firestore.rules",
     "database": "(default)"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "flutter": {
     "platforms": {
       "android": {
@@ -29,7 +32,6 @@
   "hosting": {
     "public": "powertaxi_web_admin/dist",
     "predeploy": [
-      "npm --prefix powertaxi_web_admin ci",
       "npm --prefix powertaxi_web_admin run build"
     ],
     "ignore": [

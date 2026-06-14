@@ -177,7 +177,6 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>?> driverLogin(
-    String name,
     String pin, {
     String? deviceSerialNo,
   }) async {
@@ -193,6 +192,7 @@ class AuthService {
 
       var connectivityResult = await Connectivity().checkConnectivity();
       bool isOffline = connectivityResult.contains(ConnectivityResult.none);
+      bool onlineSuccess = false;
 
       Map<String, dynamic>? userData;
 
@@ -200,10 +200,125 @@ class AuthService {
 
       // Simple plain text & SHA-256 hash PIN comparison
       debugPrint(
-        '🔐 [AUTH] Driver Login Attempt: name="$name", pin="$pin" (hashed="$hashedPin"), deviceSerial="$effectiveSerialNo"',
+        '🔐 [AUTH] Driver Login Attempt: pin="$pin" (hashed="$hashedPin"), deviceSerial="$effectiveSerialNo"',
       );
 
-      if (isOffline) {
+      if (!isOffline) {
+        try {
+          debugPrint(
+            '🔐 [AUTH] Querying Firestore: collection="users", role="driver", pin="$hashedPin"',
+          );
+          var querySnapshot = await _firestore
+              .collection('users')
+              .where('role', isEqualTo: 'driver')
+              .where('pin', isEqualTo: hashedPin)
+              .get()
+              .timeout(const Duration(seconds: 4));
+
+          if (querySnapshot.docs.isEmpty) {
+            // Fallback query for legacy plain-text PINs
+            debugPrint('🔐 [AUTH] No match with hash. Checking legacy plain-text PIN...');
+            querySnapshot = await _firestore
+                .collection('users')
+                .where('role', isEqualTo: 'driver')
+                .where('pin', isEqualTo: pin)
+                .get()
+                .timeout(const Duration(seconds: 4));
+          }
+
+          debugPrint(
+            '🔐 [AUTH] Query returned ${querySnapshot.docs.length} documents',
+          );
+
+          if (querySnapshot.docs.isEmpty) {
+            throw 'Invalid Driver PIN';
+          }
+
+          userData = querySnapshot.docs.first.data();
+          // Capture the Firestore document ID (not inside the data map)
+          final String docId = querySnapshot.docs.first.id;
+          userData['id'] = docId; // Inject doc ID into userData map
+          final List<String> accessibleCompanies = List<String>.from(
+            userData['accessibleCompanies'] ?? [],
+          );
+
+          // ─── DEVICE REGISTRATION CHECK ─────────────────────────────────────
+          // For web platform, skip device registration requirement
+          if (kIsWeb) {
+            debugPrint(
+              '🔐 [AUTH] Running on web platform. Skipping device registration check.',
+            );
+          } else {
+            debugPrint(
+              '🔐 [AUTH] Checking device registration for serial: $effectiveSerialNo',
+            );
+            final deviceDoc = await _firestore
+                .collection('devices')
+                .doc(effectiveSerialNo)
+                .get()
+                .timeout(const Duration(seconds: 4));
+
+            if (deviceDoc.exists) {
+              debugPrint('🔐 [AUTH] Device found in Firestore');
+              final deviceData = deviceDoc.data()!;
+              
+              final bool isLocked = deviceData['isLocked'] ?? false;
+              if (isLocked) {
+                throw 'Unauthorized: This device is locked by administration.';
+              }
+
+              final String? deviceCompanyId = deviceData['companyId'];
+              final String deviceCompanyName = deviceData['company'] ?? '';
+
+              DocumentSnapshot? companyDoc;
+              if (deviceCompanyId != null && deviceCompanyId.isNotEmpty) {
+                companyDoc = await _firestore
+                    .collection('companies')
+                    .doc(deviceCompanyId)
+                    .get()
+                    .timeout(const Duration(seconds: 4));
+              } else if (deviceCompanyName.isNotEmpty) {
+                final companyQuery = await _firestore
+                    .collection('companies')
+                    .where('name', isEqualTo: deviceCompanyName)
+                    .limit(1)
+                    .get()
+                    .timeout(const Duration(seconds: 4));
+                if (companyQuery.docs.isNotEmpty) {
+                  companyDoc = companyQuery.docs.first;
+                }
+              }
+
+              if (companyDoc != null) {
+                final String companyId = companyDoc.id;
+                if (!accessibleCompanies.contains(companyId)) {
+                  final companyData = companyDoc.data() as Map<String, dynamic>?;
+                  throw 'Unauthorized: You are not registered to drive for ${companyData?['name'] ?? 'this company'}.';
+                }
+              } else {
+                throw 'Unauthorized: Device company not found or linked.';
+              }
+            } else {
+              debugPrint(
+                '🔐 [AUTH] Device NOT found: $effectiveSerialNo. This device must be registered in Admin Dashboard.',
+              );
+              throw 'Unregistered Device! Please add this Serial Number ($effectiveSerialNo) in the Admin Dashboard.';
+            }
+          }
+          onlineSuccess = true;
+        } catch (e) {
+          final errorStr = e.toString();
+          if (errorStr.contains('Invalid Driver PIN') ||
+              errorStr.contains('Unauthorized') ||
+              errorStr.contains('Unregistered Device!')) {
+            rethrow;
+          }
+          debugPrint('⚠️ [AUTH] Online authentication failed/timed out, falling back to local cache: $e');
+          isOffline = true;
+        }
+      }
+
+      if (isOffline || !onlineSuccess) {
         final cachedStr = prefs.getString('cached_drivers');
         if (cachedStr == null) {
           throw 'No cached drivers available. Please connect to the internet once.';
@@ -214,139 +329,24 @@ class AuthService {
         for (var d in cachedDrivers) {
           // Compare plain text PIN or SHA-256 hashed PIN (for backwards compatibility)
           final storedPin = d['pin'];
-          if (d['name'] == name && (storedPin == pin || storedPin == hashedPin)) {
+          if (storedPin == pin || storedPin == hashedPin) {
             userData = d as Map<String, dynamic>;
             found = true;
             break;
           }
         }
         if (!found) {
-          throw 'Invalid Driver Name or PIN (Offline Verification)';
-        }
-      } else {
-        debugPrint(
-          '🔐 [AUTH] Querying Firestore: collection="users", role="driver", name="$name", pin="$hashedPin"',
-        );
-        var querySnapshot = await _firestore
-            .collection('users')
-            .where('role', isEqualTo: 'driver')
-            .where('name', isEqualTo: name)
-            .where('pin', isEqualTo: hashedPin)
-            .get();
-
-        if (querySnapshot.docs.isEmpty) {
-          // Fallback query for legacy plain-text PINs
-          debugPrint('🔐 [AUTH] No match with hash. Checking legacy plain-text PIN...');
-          querySnapshot = await _firestore
-              .collection('users')
-              .where('role', isEqualTo: 'driver')
-              .where('name', isEqualTo: name)
-              .where('pin', isEqualTo: pin)
-              .get();
-        }
-
-        debugPrint(
-          '🔐 [AUTH] Query returned ${querySnapshot.docs.length} documents',
-        );
-        if (querySnapshot.docs.isNotEmpty) {
-          debugPrint(
-            '🔐 [AUTH] Found driver: ${querySnapshot.docs.first.data()}',
-          );
-        } else {
-          debugPrint(
-            '🔐 [AUTH] No driver found. Attempting fallback: query by name only to show available data...',
-          );
-          final nameOnlyQuery = await _firestore
-              .collection('users')
-              .where('role', isEqualTo: 'driver')
-              .where('name', isEqualTo: name)
-              .get();
-          debugPrint(
-            '🔐 [AUTH] Name-only query returned ${nameOnlyQuery.docs.length} documents',
-          );
-          if (nameOnlyQuery.docs.isNotEmpty) {
-            final storedDbPin = nameOnlyQuery.docs.first.data()['pin'];
-            debugPrint(
-              '🔐 [AUTH] Found driver by name, but PIN mismatch. Stored PIN in DB: "$storedDbPin" | Entered PIN: "$pin" (hashed: "$hashedPin")',
-            );
-          }
-        }
-
-        if (querySnapshot.docs.isEmpty) {
-          throw 'Invalid Driver Name or PIN';
-        }
-
-        userData = querySnapshot.docs.first.data();
-        // Capture the Firestore document ID (not inside the data map)
-        final String docId = querySnapshot.docs.first.id;
-        userData['id'] = docId; // Inject doc ID into userData map
-        final List<String> accessibleCompanies = List<String>.from(
-          userData['accessibleCompanies'] ?? [],
-        );
-
-        // ─── DEVICE REGISTRATION CHECK ─────────────────────────────────────
-        // For web platform, skip device registration requirement
-        if (kIsWeb) {
-          debugPrint(
-            '🔐 [AUTH] Running on web platform. Skipping device registration check.',
-          );
-        } else {
-          debugPrint(
-            '🔐 [AUTH] Checking device registration for serial: $effectiveSerialNo',
-          );
-          final deviceDoc = await _firestore
-              .collection('devices')
-              .doc(effectiveSerialNo)
-              .get();
-
-          if (deviceDoc.exists) {
-            debugPrint('🔐 [AUTH] Device found in Firestore');
-            final deviceData = deviceDoc.data()!;
-            final String? deviceCompanyId = deviceData['companyId'];
-            final String deviceCompanyName = deviceData['company'] ?? '';
-
-            DocumentSnapshot? companyDoc;
-            if (deviceCompanyId != null && deviceCompanyId.isNotEmpty) {
-              companyDoc = await _firestore
-                  .collection('companies')
-                  .doc(deviceCompanyId)
-                  .get();
-            } else if (deviceCompanyName.isNotEmpty) {
-              final companyQuery = await _firestore
-                  .collection('companies')
-                  .where('name', isEqualTo: deviceCompanyName)
-                  .limit(1)
-                  .get();
-              if (companyQuery.docs.isNotEmpty) {
-                companyDoc = companyQuery.docs.first;
-              }
-            }
-
-            if (companyDoc != null) {
-              final String companyId = companyDoc.id;
-              if (!accessibleCompanies.contains(companyId)) {
-                final companyData = companyDoc.data() as Map<String, dynamic>?;
-                throw 'Unauthorized: You are not registered to drive for ${companyData?['name'] ?? 'this company'}.';
-              }
-            } else {
-              throw 'Unauthorized: Device company not found or linked.';
-            }
-          } else {
-            debugPrint(
-              '🔐 [AUTH] Device NOT found: $effectiveSerialNo. This device must be registered in Admin Dashboard.',
-            );
-            throw 'Unregistered Device! Please add this Serial Number ($effectiveSerialNo) in the Admin Dashboard.';
-          }
+          throw 'Invalid Driver PIN (Offline Verification)';
         }
       }
 
-      final String email = userData!['email'] ?? name;
+      final String email = userData!['email'] ?? 'driver@powertaxi.com';
       final String savedDriverId = userData['id'] ?? email;
 
       // Record state in SharedPreferences
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('userRole', 'driver');
-      await prefs.setString('driverName', userData['name'] ?? name);
+      await prefs.setString('driverName', userData['name'] ?? 'Driver');
       await prefs.setString('driverId', savedDriverId);
       await prefs.setString('deviceSerialNo', effectiveSerialNo);
       await prefs.setString('serialNo', effectiveSerialNo);
@@ -362,7 +362,7 @@ class AuthService {
 
       // Upsert current driver into cache
       int index = cachedDrivers.indexWhere(
-        (d) => d['name'] == (userData!['name'] ?? name),
+        (d) => d['id'] == userData!['id'],
       );
 
       final sanitizedUserData = _sanitizeFirestoreData(userData);
@@ -374,25 +374,30 @@ class AuthService {
       }
       await prefs.setString('cached_drivers', jsonEncode(cachedDrivers));
 
-      if (!isOffline) {
-        // Update device status in Firestore
-        await updateDeviceStatus(
+      if (!isOffline && onlineSuccess) {
+        // Update device status and sync device data in the background to prevent blocking
+        updateDeviceStatus(
           effectiveSerialNo,
           status: 'idle',
-          driverName: userData['name'] ?? name,
-        );
-        // Sync anyway to get fresh data
-        await syncDeviceData();
+          driverName: userData['name'] ?? 'Driver',
+        ).catchError((e) {
+          debugPrint('⚠️ [AUTH] Background updateDeviceStatus failed: $e');
+        });
+        
+        syncDeviceData().catchError((e) {
+          debugPrint('⚠️ [AUTH] Background syncDeviceData failed: $e');
+          return false;
+        });
       }
 
       if (!kIsWeb) {
         await LocalDatabaseHelper.instance.insertActivityLog(
           user: email,
-          action: isOffline ? 'DRIVER_LOGIN_OFFLINE' : 'DRIVER_LOGIN_PIN',
+          action: (isOffline || !onlineSuccess) ? 'DRIVER_LOGIN_OFFLINE' : 'DRIVER_LOGIN_PIN',
         );
       }
 
-      debugPrint('✅ [AUTH] Driver login SUCCESSFUL: ${userData['name']}');
+      debugPrint('🔐 [AUTH] Driver login SUCCESSFUL: ${userData['name']}');
       return userData;
     } catch (e) {
       rethrow;
@@ -425,12 +430,14 @@ class AuthService {
           final deviceData = deviceDoc.data()!;
           await prefs.setString('plateNo', deviceData['plateNo'] ?? '');
           await prefs.setString('bodyNo', deviceData['bodyNo'] ?? '');
-          await prefs.setString('companyName', deviceData['company'] ?? '');
           await prefs.setString('ptuNo', deviceData['ptuNo'] ?? '');
           await prefs.setString(
             'accreditationNo',
             deviceData['accreditationNo'] ?? '',
           );
+          await prefs.setBool('needsMaintenance', deviceData['needsMaintenance'] ?? false);
+          await prefs.setString('maintenanceReason', deviceData['maintenanceReason'] ?? '');
+          await prefs.setBool('isLocked', deviceData['isLocked'] ?? false);
           // CRITICAL: Ensure local serialNo is ALWAYS synced to the Document ID
           // even if the internal field 'serialNo' is missing in Firestore.
           await prefs.setString('serialNo', effectiveSerialNo);
@@ -451,40 +458,45 @@ class AuthService {
           }
 
           String deviceTin = deviceData['tin'] ?? '';
-          String companyId = '';
+          String companyId = deviceData['companyId'] ?? '';
+          String companyName = deviceData['company'] ?? '';
 
-          if (deviceData['company'] != null) {
-            final companyQuery = await _firestore
-                .collection('companies')
-                .where('name', isEqualTo: deviceData['company'])
-                .limit(1)
-                .get();
-            if (companyQuery.docs.isNotEmpty) {
-              final companyData = companyQuery.docs.first.data();
-              deviceTin = deviceTin.isEmpty
-                  ? (companyData['tin'] ?? '')
-                  : deviceTin;
-              companyId = companyQuery.docs.first.id;
+          if (companyId.isNotEmpty || companyName.isNotEmpty) {
+            if (companyId.isNotEmpty) {
+              final doc = await _firestore.collection('companies').doc(companyId).get();
+              if (doc.exists) {
+                final companyData = doc.data()!;
+                companyName = companyData['name'] ?? companyName;
+                deviceTin = deviceTin.isEmpty ? (companyData['tin'] ?? '') : deviceTin;
 
-              // Sync calibration settings
-              await prefs.setDouble(
-                'baseFare',
-                (companyData['baseFare'] ?? 40.0).toDouble(),
-              );
-              await prefs.setDouble(
-                'ratePerKm',
-                (companyData['ratePerKm'] ?? 13.50).toDouble(),
-              );
-              await prefs.setDouble(
-                'ratePerMinute',
-                (companyData['ratePerMinute'] ?? 2.0).toDouble(),
-              );
-              await prefs.setDouble(
-                'distanceMultiplier',
-                (companyData['distanceMultiplier'] ?? 1.0).toDouble(),
-              );
+                await prefs.setDouble('baseFare', (companyData['baseFare'] ?? 40.0).toDouble());
+                await prefs.setDouble('ratePerKm', (companyData['ratePerKm'] ?? 13.50).toDouble());
+                await prefs.setDouble('ratePerMinute', (companyData['ratePerMinute'] ?? 2.0).toDouble());
+                await prefs.setDouble('distanceMultiplier', (companyData['distanceMultiplier'] ?? 1.0).toDouble());
+                await prefs.setBool('enableShiftFlow', companyData['enableShiftFlow'] ?? false);
+              }
+            } else if (companyName.isNotEmpty) {
+              final companyQuery = await _firestore
+                  .collection('companies')
+                  .where('name', isEqualTo: companyName)
+                  .limit(1)
+                  .get();
+              if (companyQuery.docs.isNotEmpty) {
+                final companyData = companyQuery.docs.first.data();
+                companyId = companyQuery.docs.first.id;
+                companyName = companyData['name'] ?? companyName;
+                deviceTin = deviceTin.isEmpty ? (companyData['tin'] ?? '') : deviceTin;
+
+                await prefs.setDouble('baseFare', (companyData['baseFare'] ?? 40.0).toDouble());
+                await prefs.setDouble('ratePerKm', (companyData['ratePerKm'] ?? 13.50).toDouble());
+                await prefs.setDouble('ratePerMinute', (companyData['ratePerMinute'] ?? 2.0).toDouble());
+                await prefs.setDouble('distanceMultiplier', (companyData['distanceMultiplier'] ?? 1.0).toDouble());
+                await prefs.setBool('enableShiftFlow', companyData['enableShiftFlow'] ?? false);
+              }
             }
           }
+
+          await prefs.setString('companyName', companyName);
 
           await prefs.setString('tin', deviceTin);
           await prefs.setString('minNo', deviceData['minNo'] ?? '');
@@ -576,14 +588,13 @@ class AuthService {
   }
 
   /// DEBUG METHOD: Test if a specific driver/PIN combination exists in Firestore
-  Future<bool> debugTestDriverLogin(String name, String pin) async {
+  Future<bool> debugTestDriverLogin(String pin) async {
     try {
-      debugPrint('🔍 [DEBUG] Testing driver login: name="$name", pin="$pin"');
+      debugPrint('🔍 [DEBUG] Testing driver login: pin="$pin"');
 
       final querySnapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: 'driver')
-          .where('name', isEqualTo: name)
           .where('pin', isEqualTo: pin)
           .get();
 
@@ -676,16 +687,23 @@ class AuthService {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     final String? serialNo = prefs.getString('deviceSerialNo');
-    if (serialNo != null) {
-      await updateDeviceStatus(serialNo, status: 'offline');
-    }
+    
     // Clear only session-specific keys to preserve device-wide cache (drivers, plateNo, etc.)
-    await prefs.remove('isLoggedIn');
-    await prefs.remove('userRole');
-    await prefs.remove('driverName');
-    await prefs.remove('driverId');
-    await prefs.remove('photoUrl');
-    // deviceSerialNo is intentionally kept
+    // Clear them immediately to ensure UI transitions instantly.
+    await Future.wait([
+      prefs.remove('isLoggedIn'),
+      prefs.remove('userRole'),
+      prefs.remove('driverName'),
+      prefs.remove('driverId'),
+      prefs.remove('photoUrl'),
+    ]);
+
+    if (serialNo != null) {
+      // Fire-and-forget status update so it doesn't block the UI thread during network lag.
+      updateDeviceStatus(serialNo, status: 'offline').catchError((e) {
+        debugPrint('AUTH_SERVICE: Failed to set offline status on logout: $e');
+      });
+    }
   }
 
   /// Updates the real-time status of the device for the Admin Dashboard.
@@ -756,6 +774,42 @@ class AuthService {
         final snapshot = await transaction.get(docRef);
         if (snapshot.exists) {
           final data = snapshot.data()!;
+          
+          double currentOdometer = (data['odometer'] ?? 0.0).toDouble();
+          double lastOil = (data['lastOilChangeOdometer'] ?? 0.0).toDouble();
+          double lastTire = (data['lastTireChangeOdometer'] ?? 0.0).toDouble();
+          bool needsMaint = data['needsMaintenance'] ?? false;
+          String maintReason = data['maintenanceReason'] ?? '';
+          
+          // Increment odometer by trip distance in KM
+          double newOdometer = currentOdometer + (distanceMeters / 1000.0);
+          
+          List<String> reasons = [];
+          if (maintReason.isNotEmpty) {
+            // Keep existing reasons if any (except oil/tire which we will recheck)
+            for (var r in maintReason.split(' & ')) {
+              if (!r.contains('Oil Change') && !r.contains('Tire Rotation')) {
+                reasons.add(r);
+              }
+            }
+          }
+          
+          if (newOdometer - lastOil >= 5000.0) {
+            needsMaint = true;
+            reasons.add("Oil Change Required (Overdue)");
+          }
+          
+          if (newOdometer - lastTire >= 10000.0) {
+            needsMaint = true;
+            reasons.add("Tire Rotation/Change Required (Overdue)");
+          }
+          
+          String newMaintReason = reasons.join(' & ');
+          if (reasons.isEmpty) {
+            needsMaint = false;
+            newMaintReason = '';
+          }
+
           transaction.set(docRef, {
             'dailyTripSeconds': (data['dailyTripSeconds'] ?? 0) + tripSeconds,
             'dailyWaitingSeconds':
@@ -763,6 +817,9 @@ class AuthService {
             'dailyDistanceMeters':
                 ((data['dailyDistanceMeters'] ?? 0.0) as num).toDouble() +
                 distanceMeters,
+            'odometer': newOdometer,
+            'needsMaintenance': needsMaint,
+            'maintenanceReason': newMaintReason,
             'lastSeen': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         }

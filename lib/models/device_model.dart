@@ -17,6 +17,12 @@ class Device {
   final int dailyTripSeconds;    // cumulative ride time in seconds
   final int dailyWaitingSeconds; // cumulative waiting time in seconds
   final double dailyDistanceMeters; // cumulative distance in meters
+  final double odometer;
+  final double lastOilChangeOdometer;
+  final double lastTireChangeOdometer;
+  final bool needsMaintenance;
+  final String maintenanceReason;
+  final bool isLocked;
   final DateTime? createdAt;
 
   Device({
@@ -36,6 +42,12 @@ class Device {
     this.dailyTripSeconds = 0,
     this.dailyWaitingSeconds = 0,
     this.dailyDistanceMeters = 0.0,
+    this.odometer = 0.0,
+    this.lastOilChangeOdometer = 0.0,
+    this.lastTireChangeOdometer = 0.0,
+    this.needsMaintenance = false,
+    this.maintenanceReason = '',
+    this.isLocked = false,
     this.createdAt,
   })  : serialNo = serialNo.trim().toUpperCase(),
         company = company.trim();
@@ -59,6 +71,12 @@ class Device {
       dailyTripSeconds: (data['dailyTripSeconds'] ?? 0).toInt(),
       dailyWaitingSeconds: (data['dailyWaitingSeconds'] ?? 0).toInt(),
       dailyDistanceMeters: (data['dailyDistanceMeters'] ?? 0.0).toDouble(),
+      odometer: (data['odometer'] ?? 0.0).toDouble(),
+      lastOilChangeOdometer: (data['lastOilChangeOdometer'] ?? 0.0).toDouble(),
+      lastTireChangeOdometer: (data['lastTireChangeOdometer'] ?? 0.0).toDouble(),
+      needsMaintenance: data['needsMaintenance'] ?? false,
+      maintenanceReason: data['maintenanceReason'] ?? '',
+      isLocked: data['isLocked'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -81,6 +99,12 @@ class Device {
       'dailyTripSeconds': dailyTripSeconds,
       'dailyWaitingSeconds': dailyWaitingSeconds,
       'dailyDistanceMeters': dailyDistanceMeters,
+      'odometer': odometer,
+      'lastOilChangeOdometer': lastOilChangeOdometer,
+      'lastTireChangeOdometer': lastTireChangeOdometer,
+      'needsMaintenance': needsMaintenance,
+      'maintenanceReason': maintenanceReason,
+      'isLocked': isLocked,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }

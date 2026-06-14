@@ -112,6 +112,9 @@ class MainActivity : FlutterActivity() {
                 KeyEvent.KEYCODE_F4        -> 4
                 KeyEvent.KEYCODE_F5        -> 5
                 KeyEvent.KEYCODE_F6        -> 6
+                // ── Shift Management (Volume) ──────────────────────────
+                KeyEvent.KEYCODE_VOLUME_UP   -> 1   // F1 (Start Shift / End Shift)
+                KeyEvent.KEYCODE_VOLUME_DOWN -> 2   // F2 (Break)
                 else -> -1
             }
 

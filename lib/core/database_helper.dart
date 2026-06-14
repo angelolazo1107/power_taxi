@@ -179,4 +179,25 @@ class LocalDatabaseHelper {
       orderBy: 'timestamp ASC',
     );
   }
+
+  /// Retrieve all shift logs (start shift, break time, end shift)
+  Future<List<Map<String, dynamic>>> getShiftLogs() async {
+    final db = await instance.database;
+    
+    // Ensure table exists (fallback)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        user TEXT NOT NULL,
+        action TEXT NOT NULL
+      )
+    ''');
+
+    return await db.query(
+      'activity_logs',
+      where: "action LIKE 'SHIFT_%'",
+      orderBy: 'timestamp DESC',
+    );
+  }
 }

@@ -4,8 +4,7 @@ import '../../../services/auth_service.dart';
 
 class LoginForm extends StatefulWidget {
   final Function(String email, String password) onLogin;
-  final Function(String name, String pin, String? selectedDevice)?
-  onDriverLogin;
+  final Function(String pin, String? selectedDevice)? onDriverLogin;
   final bool isLoading;
 
   const LoginForm({
@@ -20,11 +19,10 @@ class LoginForm extends StatefulWidget {
 }
 
 class _LoginFormState extends State<LoginForm> {
-  final _nameController = TextEditingController();
-  final _pinController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String _deviceId = 'Detecting...';
+  String _enteredPin = '';
 
   @override
   void initState() {
@@ -43,12 +41,51 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   @override
+  void didUpdateWidget(covariant LoginForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear entered PIN if loading finishes (failed attempt)
+    if (oldWidget.isLoading && !widget.isLoading) {
+      setState(() {
+        _enteredPin = '';
+      });
+    }
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
-    _pinController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _onDigitPressed(String digit) {
+    if (widget.isLoading) return;
+    if (_enteredPin.length < 6) {
+      setState(() {
+        _enteredPin += digit;
+      });
+      if (_enteredPin.length == 6) {
+        _handleSubmit();
+      }
+    }
+  }
+
+  void _onBackspacePressed() {
+    if (widget.isLoading) return;
+    if (_enteredPin.isNotEmpty) {
+      setState(() {
+        _enteredPin = _enteredPin.substring(0, _enteredPin.length - 1);
+      });
+    }
+  }
+
+  void _onClearPressed() {
+    if (widget.isLoading) return;
+    if (_enteredPin.isNotEmpty) {
+      setState(() {
+        _enteredPin = '';
+      });
+    }
   }
 
   void _handleSubmit() {
@@ -59,12 +96,44 @@ class _LoginFormState extends State<LoginForm> {
         _passwordController.text.trim(),
       );
     } else {
-      widget.onDriverLogin?.call(
-        _nameController.text.trim(),
-        _pinController.text.trim(),
-        null,
-      );
+      if (_enteredPin.length == 6) {
+        widget.onDriverLogin?.call(
+          _enteredPin,
+          null,
+        );
+      }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              message.toLowerCase().contains('serial') ? 'Serial Error' : 'Authentication Error',
+              style: const TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Color(0xFF4B5563), fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFD97706)),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showManualSerialDialog(BuildContext context) async {
@@ -76,13 +145,13 @@ class _LoginFormState extends State<LoginForm> {
       barrierDismissible: !isSaving,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: const Color(0xFF111418),
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
             'Change Device ID',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -90,22 +159,22 @@ class _LoginFormState extends State<LoginForm> {
             children: [
               const Text(
                 'Enter the Serial Number as registered in the Admin Dashboard.',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(color: Color(0xFF4B5563), fontSize: 13),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
                 autofocus: true,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF1F2937)),
                 decoration: InputDecoration(
                   labelText: 'Serial Number',
-                  labelStyle: const TextStyle(color: Colors.orange),
+                  labelStyle: const TextStyle(color: Color(0xFFD97706)),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white24),
+                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.orange),
+                    borderSide: const BorderSide(color: Color(0xFFD97706), width: 2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -117,7 +186,7 @@ class _LoginFormState extends State<LoginForm> {
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
               child: const Text(
                 'CANCEL',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: Color(0xFF6B7280)),
               ),
             ),
             ElevatedButton(
@@ -135,25 +204,55 @@ class _LoginFormState extends State<LoginForm> {
                       } catch (e) {
                         setState(() => isSaving = false);
                         if (context.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text(e.toString()),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                          _showErrorDialog(e.toString());
                         }
                       }
                     },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706)),
               child: isSaving
                   ? const SizedBox(
                       height: 18,
                       width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('SAVE', style: TextStyle(color: Colors.black)),
+                  : const Text('SAVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNumpadButton(String text, VoidCallback onPressed, {Widget? icon}) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Colors.orange.withOpacity(0.3),
+          highlightColor: Colors.orange.withOpacity(0.1),
+          child: Container(
+            height: 70, // Increased button height from 50 to 70
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.withOpacity(0.25),
+                width: 1.5,
+              ),
+              color: Colors.orange.withOpacity(0.06), // Subtle light tint for readability
+            ),
+            alignment: Alignment.center,
+            child: icon ?? Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF1F2937), // Dark text color for light theme contrast
+                fontSize: 28, // Enlarged font size from 24 to 28
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -167,86 +266,205 @@ class _LoginFormState extends State<LoginForm> {
           if (kIsWeb) ...[
             TextField(
               controller: _emailController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Color(0xFF1F2937)),
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _handleSubmit(),
               decoration: InputDecoration(
                 labelText: 'Email Address',
-                labelStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: const Icon(Icons.email, color: Colors.orange),
-                border: OutlineInputBorder(
+                labelStyle: const TextStyle(color: Color(0xFF4B5563)),
+                prefixIcon: const Icon(Icons.email, color: Color(0xFFD97706)),
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD97706), width: 2),
                 ),
                 filled: true,
-                fillColor: Colors.white10,
+                fillColor: const Color(0xFFF3F4F6),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
               obscureText: true,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Color(0xFF1F2937)),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _handleSubmit(),
               decoration: InputDecoration(
                 labelText: 'Password',
-                labelStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: const Icon(Icons.lock, color: Colors.orange),
-                border: OutlineInputBorder(
+                labelStyle: const TextStyle(color: Color(0xFF4B5563)),
+                prefixIcon: const Icon(Icons.lock, color: Color(0xFFD97706)),
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD97706), width: 2),
                 ),
                 filled: true,
-                fillColor: Colors.white10,
+                fillColor: const Color(0xFFF3F4F6),
+              ),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: widget.isLoading ? null : _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                child: widget.isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'ADMIN LOGIN',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                ),
+            ),
+            const SizedBox(height: 20),
+            // DEBUG BUTTON: Show available admins (WEB ONLY)
+            TextButton.icon(
+              onPressed: _showDebugAdmins,
+              icon: const Icon(Icons.bug_report, color: Colors.grey),
+              label: const Text(
+                'DEBUG: Show Available Admins',
+                style: TextStyle(color: Colors.grey, fontSize: 11),
               ),
             ),
           ] else ...[
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              textInputAction: TextInputAction.next,
-              onSubmitted: (_) => _handleSubmit(),
-              decoration: InputDecoration(
-                labelText: 'Driver Name',
-                labelStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: const Icon(Icons.person_pin, color: Colors.orange),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.white10,
+            const Text(
+              'ENTER SECURE PIN',
+              style: TextStyle(
+                color: Color(0xFF374151), // High contrast text color
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _pinController,
-              obscureText: true,
-              textAlign: TextAlign.center,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _handleSubmit(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                letterSpacing: 8,
-              ),
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              decoration: InputDecoration(
-                labelText: 'Enter PIN Code',
-                labelStyle: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  letterSpacing: 1,
-                ),
-                prefixIcon: const Icon(Icons.lock_open, color: Colors.orange),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.white10,
-                counterText: "",
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(6, (index) {
+                final isFilled = index < _enteredPin.length;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  width: isFilled ? 18 : 14,
+                  height: isFilled ? 18 : 14,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isFilled ? const Color(0xFFD97706) : Colors.transparent,
+                    border: Border.all(
+                      color: isFilled ? const Color(0xFFD97706) : const Color(0xFF9CA3AF),
+                      width: 2,
+                    ),
+                    boxShadow: isFilled
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFD97706).withOpacity(0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            )
+                          ]
+                        : [],
+                  ),
+                );
+              }),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
+            if (widget.isLoading)
+              Container(
+                height: 320, // Match enlarged numpad height
+                alignment: Alignment.center,
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 50,
+                      width: 50,
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFD97706),
+                        strokeWidth: 4,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Authorizing Driver...',
+                      style: TextStyle(
+                        color: Color(0xFFD97706),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                width: 420, // Widened from 340 to 420
+                child: Table(
+                  children: [
+                    TableRow(
+                      children: [
+                        _buildNumpadButton('1', () => _onDigitPressed('1')),
+                        _buildNumpadButton('2', () => _onDigitPressed('2')),
+                        _buildNumpadButton('3', () => _onDigitPressed('3')),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        _buildNumpadButton('4', () => _onDigitPressed('4')),
+                        _buildNumpadButton('5', () => _onDigitPressed('5')),
+                        _buildNumpadButton('6', () => _onDigitPressed('6')),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        _buildNumpadButton('7', () => _onDigitPressed('7')),
+                        _buildNumpadButton('8', () => _onDigitPressed('8')),
+                        _buildNumpadButton('9', () => _onDigitPressed('9')),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        _buildNumpadButton(
+                          'C',
+                          _onClearPressed,
+                          icon: const Icon(Icons.clear_all, color: Color(0xFF4B5563), size: 28),
+                        ),
+                        _buildNumpadButton('0', () => _onDigitPressed('0')),
+                        _buildNumpadButton(
+                          '⌫',
+                          _onBackspacePressed,
+                          icon: const Icon(Icons.backspace_outlined, color: Color(0xFF4B5563), size: 28),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
             Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -254,8 +472,8 @@ class _LoginFormState extends State<LoginForm> {
                   Text(
                     'Device ID: $_deviceId',
                     style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
+                      color: Color(0xFF6B7280),
+                      fontSize: 12,
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -265,8 +483,8 @@ class _LoginFormState extends State<LoginForm> {
                     child: const Text(
                       'CHANGE',
                       style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 10,
+                        color: Color(0xFFD97706),
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         decoration: TextDecoration.underline,
                       ),
@@ -275,59 +493,13 @@ class _LoginFormState extends State<LoginForm> {
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: 30),
-          SizedBox(
-            width: double.infinity,
-            height: 55,
-            child: ElevatedButton(
-              onPressed: widget.isLoading ? null : _handleSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-              child: widget.isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.black,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      kIsWeb ? 'ADMIN LOGIN' : 'UNLOCK METER',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // DEBUG BUTTON: Show available drivers
-          if (!kIsWeb) ...[
+            const SizedBox(height: 20),
+            // DEBUG BUTTON: Show available drivers
             TextButton.icon(
               onPressed: _showDebugInfo,
               icon: const Icon(Icons.bug_report, color: Colors.grey),
               label: const Text(
                 'DEBUG: Show Available Drivers',
-                style: TextStyle(color: Colors.grey, fontSize: 11),
-              ),
-            ),
-          ],
-          // DEBUG BUTTON: Show available admins (WEB ONLY)
-          if (kIsWeb) ...[
-            TextButton.icon(
-              onPressed: _showDebugAdmins,
-              icon: const Icon(Icons.bug_report, color: Colors.grey),
-              label: const Text(
-                'DEBUG: Show Available Admins',
                 style: TextStyle(color: Colors.grey, fontSize: 11),
               ),
             ),
@@ -346,13 +518,13 @@ class _LoginFormState extends State<LoginForm> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF111418),
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
             'Available Drivers (Debug)',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: double.maxFinite,
@@ -365,7 +537,7 @@ class _LoginFormState extends State<LoginForm> {
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white10,
+                    color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -374,22 +546,24 @@ class _LoginFormState extends State<LoginForm> {
                       Text(
                         'Name: ${driver['name']}',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF1F2937),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         'PIN Hash: ${driver['has_pin'] ? driver['pin'] : 'MISSING'}',
                         style: TextStyle(
-                          color: driver['has_pin'] ? Colors.green : Colors.red,
+                          color: driver['has_pin'] ? const Color(0xFF2E7D32) : Colors.red,
                           fontSize: 12,
                           fontFamily: 'monospace',
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         'Email: ${driver['email']}',
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: Color(0xFF4B5563),
                           fontSize: 11,
                         ),
                       ),
@@ -402,15 +576,14 @@ class _LoginFormState extends State<LoginForm> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CLOSE'),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFD97706)),
+              child: const Text('CLOSE', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      _showErrorDialog(e.toString());
     }
   }
 
@@ -423,13 +596,13 @@ class _LoginFormState extends State<LoginForm> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF111418),
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
             'Available Admins/Operators (Debug)',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: double.maxFinite,
@@ -442,7 +615,7 @@ class _LoginFormState extends State<LoginForm> {
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white10,
+                    color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -451,23 +624,25 @@ class _LoginFormState extends State<LoginForm> {
                       Text(
                         'Email: ${admin['email']}',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF1F2937),
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         'Role: ${admin['role']}',
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: Color(0xFF4B5563),
                           fontSize: 12,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         'Password: ${admin['password']}',
                         style: TextStyle(
                           color: admin['has_password']
-                              ? Colors.green
+                              ? const Color(0xFF2E7D32)
                               : Colors.red,
                           fontSize: 12,
                           fontFamily: 'monospace',
@@ -482,15 +657,14 @@ class _LoginFormState extends State<LoginForm> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CLOSE'),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFD97706)),
+              child: const Text('CLOSE', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      _showErrorDialog(e.toString());
     }
   }
 }

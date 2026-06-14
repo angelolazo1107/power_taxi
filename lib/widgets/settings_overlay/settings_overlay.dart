@@ -20,7 +20,7 @@ const Color _gold = Color(0xFFFFB347);
 // ─────────────────────────────────────────────
 //  MAIN ENTRY POINT
 // ─────────────────────────────────────────────
-Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
+Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state, VoidCallback onLogout) {
   final int activeTab = state.activeSettingsTab;
 
   return Stack(
@@ -59,7 +59,7 @@ Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
               child: Row(
                 children: [
                   // ── LEFT SIDEBAR ──────────────────────────────────────
-                  _SideNav(activeTab: activeTab),
+                  _SideNav(activeTab: activeTab, onLogout: onLogout),
 
                   // ── RIGHT CONTENT AREA ────────────────────────────────
                   Expanded(
@@ -96,7 +96,8 @@ Widget buildSettingsOverlay(BuildContext context, TaxiMeterState state) {
 // ─────────────────────────────────────────────
 class _SideNav extends StatelessWidget {
   final int activeTab;
-  const _SideNav({required this.activeTab});
+  final VoidCallback onLogout;
+  const _SideNav({required this.activeTab, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -182,6 +183,43 @@ class _SideNav extends StatelessWidget {
           ),
 
           const Spacer(),
+
+          // Logout Button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Builder(
+              builder: (ctx) => GestureDetector(
+                onTap: () {
+                  ctx.read<TaxiMeterBloc>().add(const ToggleSettings(false));
+                  onLogout();
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout, color: Colors.white, size: 14),
+                      SizedBox(width: 8),
+                      Text(
+                        'LOGOUT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           // Close button at bottom
           Padding(

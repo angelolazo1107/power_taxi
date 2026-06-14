@@ -4,7 +4,8 @@ import {
   subscribeToCompanies, 
   addDevice, 
   updateDevice, 
-  deleteDevice 
+  deleteDevice,
+  toggleDeviceLock
 } from '../services/firebase';
 import type { Device, Company } from '../services/firebase';
 import { 
@@ -19,7 +20,9 @@ import {
   CheckCircle,
   AlertCircle,
   Building,
-  Key
+  Key,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 interface DevicesManagementProps {
@@ -45,6 +48,9 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
   const [tin, setTin] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [odometer, setOdometer] = useState('0');
+  const [lastOilChangeOdometer, setLastOilChangeOdometer] = useState('0');
+  const [lastTireChangeOdometer, setLastTireChangeOdometer] = useState('0');
 
   // Delete dialog state
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
@@ -84,6 +90,9 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
     setAccreditationNo('');
     setMinNo('');
     setTin('');
+    setOdometer('0');
+    setLastOilChangeOdometer('0');
+    setLastTireChangeOdometer('0');
     
     // Auto-select company if one is currently filtered
     if (selectedCompanyId) {
@@ -107,6 +116,9 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
     setAccreditationNo(d.accreditationNo);
     setMinNo(d.minNo);
     setTin(d.tin);
+    setOdometer(d.odometer?.toString() || '0');
+    setLastOilChangeOdometer(d.lastOilChangeOdometer?.toString() || '0');
+    setLastTireChangeOdometer(d.lastTireChangeOdometer?.toString() || '0');
     setCompanyId(d.companyId || '');
     setCompanyName(d.company);
     setIsDialogOpen(true);
@@ -130,6 +142,21 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
     setSaving(true);
     try {
       if (editingDevice) {
+        const currentOdo = parseFloat(odometer) || 0;
+        const lastOil = parseFloat(lastOilChangeOdometer) || 0;
+        const lastTire = parseFloat(lastTireChangeOdometer) || 0;
+        
+        let needsMaint = false;
+        const reasons = [];
+        if (currentOdo - lastOil >= 5000) {
+          needsMaint = true;
+          reasons.push("Oil Change Required (Overdue)");
+        }
+        if (currentOdo - lastTire >= 10000) {
+          needsMaint = true;
+          reasons.push("Tire Rotation/Change Required (Overdue)");
+        }
+
         await updateDevice({
           ...editingDevice,
           company: companyName,
@@ -139,10 +166,30 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
           ptuNo: ptuNo.trim(),
           accreditationNo: accreditationNo.trim(),
           minNo: minNo.trim(),
-          tin: tin.trim()
+          tin: tin.trim(),
+          odometer: currentOdo,
+          lastOilChangeOdometer: lastOil,
+          lastTireChangeOdometer: lastTire,
+          needsMaintenance: needsMaint,
+          maintenanceReason: reasons.join(" & ")
         });
         showToast(`Device details for ${cleanSerial} updated successfully!`);
       } else {
+        const currentOdo = parseFloat(odometer) || 0;
+        const lastOil = parseFloat(lastOilChangeOdometer) || 0;
+        const lastTire = parseFloat(lastTireChangeOdometer) || 0;
+        
+        let needsMaint = false;
+        const reasons = [];
+        if (currentOdo - lastOil >= 5000) {
+          needsMaint = true;
+          reasons.push("Oil Change Required (Overdue)");
+        }
+        if (currentOdo - lastTire >= 10000) {
+          needsMaint = true;
+          reasons.push("Tire Rotation/Change Required (Overdue)");
+        }
+
         await addDevice({
           serialNo: cleanSerial,
           company: companyName,
@@ -152,7 +199,12 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
           ptuNo: ptuNo.trim(),
           accreditationNo: accreditationNo.trim(),
           minNo: minNo.trim(),
-          tin: tin.trim()
+          tin: tin.trim(),
+          odometer: currentOdo,
+          lastOilChangeOdometer: lastOil,
+          lastTireChangeOdometer: lastTire,
+          needsMaintenance: needsMaint,
+          maintenanceReason: reasons.join(" & ")
         });
         showToast(`New device ${cleanSerial} registered successfully! Default password is '123'.`);
       }
@@ -273,6 +325,7 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
                   <th className="px-6 py-3.5">Serial No.</th>
                   <th className="px-6 py-3.5">Plate / Body</th>
                   <th className="px-6 py-3.5">Company</th>
+                  <th className="px-6 py-3.5">Odometer / Maintenance</th>
                   <th className="px-6 py-3.5">PTU / Accreditation</th>
                   <th className="px-6 py-3.5 text-center w-28">Actions</th>
                 </tr>
@@ -317,6 +370,50 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
                       </span>
                     </td>
 
+                    {/* Odometer & Maintenance Column */}
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const odo = d.odometer || 0;
+                        const lastOil = d.lastOilChangeOdometer || 0;
+                        const lastTire = d.lastTireChangeOdometer || 0;
+                        
+                        const oilDiff = odo - lastOil;
+                        const tireDiff = odo - lastTire;
+                        
+                        const oilRemaining = 5000 - oilDiff;
+                        const tireRemaining = 10000 - tireDiff;
+                        
+                        const oilOverdue = oilRemaining <= 0;
+                        const tireOverdue = tireRemaining <= 0;
+                        
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white font-mono text-[11px]">
+                                {odo.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KM
+                              </span>
+                              {d.needsMaintenance && (
+                                <span 
+                                  className="px-1.5 py-0.5 bg-red-500/15 text-red-400 border border-red-500/25 rounded text-[8px] font-bold uppercase tracking-wide cursor-help shrink-0"
+                                  title={d.maintenanceReason || "Service Overdue"}
+                                >
+                                  ⚠️ Service
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col text-[9px] leading-tight text-textFaint">
+                              <span className={oilOverdue ? 'text-red-400 font-semibold animate-pulse' : 'text-textFaint'}>
+                                Oil: {oilOverdue ? 'OVERDUE' : `${Math.max(0, Math.round(oilRemaining)).toLocaleString()} KM left`}
+                              </span>
+                              <span className={tireOverdue ? 'text-red-400 font-semibold animate-pulse' : 'text-textFaint'}>
+                                Tires: {tireOverdue ? 'OVERDUE' : `${Math.max(0, Math.round(tireRemaining)).toLocaleString()} KM left`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </td>
+
                     {/* PTU Column */}
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
@@ -328,6 +425,24 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
                     {/* Actions Column */}
                     <td className="px-6 py-4 w-28">
                       <div className="flex justify-center items-center gap-2">
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await toggleDeviceLock(d.serialNo, !d.isLocked);
+                              showToast(`Device ${d.serialNo} ${!d.isLocked ? 'locked' : 'unlocked'} successfully!`);
+                            } catch (err: any) {
+                              showToast(`Failed to toggle lock: ${err.message || err}`, true);
+                            }
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors border border-transparent ${
+                            d.isLocked 
+                              ? 'bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border-red-500/20' 
+                              : 'hover:bg-borderDark text-textFaint hover:text-white hover:border-borderDark'
+                          }`}
+                          title={d.isLocked ? "Unlock Device" : "Lock Device"}
+                        >
+                          {d.isLocked ? <Lock size={15} /> : <Unlock size={15} />}
+                        </button>
                         <button 
                           onClick={() => handleOpenEdit(d)}
                           className="p-1.5 hover:bg-borderDark rounded-lg text-textFaint hover:text-white transition-colors border border-transparent hover:border-borderDark"
@@ -484,6 +599,72 @@ export const DevicesManagement: React.FC<DevicesManagementProps> = ({ selectedCo
                     className="w-full px-4 py-2.5 bg-cardColor border border-borderDark rounded-lg text-xs text-white placeholder-textFaint/60 focus:outline-none focus:border-accentOrange transition-colors font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Odometer & Servicing Inputs */}
+              <div className="border-t border-borderDark/60 pt-4 space-y-4">
+                <h4 className="text-[10px] font-bold text-accentOrange uppercase tracking-wider">Odometer & Maintenance Calibration</h4>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-textFaint uppercase tracking-wider">Current Odometer (KM)</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      value={odometer}
+                      onChange={(e) => setOdometer(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 bg-cardColor border border-borderDark rounded-lg text-xs text-white focus:outline-none focus:border-accentOrange font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-textFaint uppercase tracking-wider">Last Oil Change (KM)</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      value={lastOilChangeOdometer}
+                      onChange={(e) => setLastOilChangeOdometer(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 bg-cardColor border border-borderDark rounded-lg text-xs text-white focus:outline-none focus:border-accentOrange font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-textFaint uppercase tracking-wider">Last Tire Change (KM)</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      value={lastTireChangeOdometer}
+                      onChange={(e) => setLastTireChangeOdometer(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 bg-cardColor border border-borderDark rounded-lg text-xs text-white focus:outline-none focus:border-accentOrange font-mono"
+                    />
+                  </div>
+                </div>
+
+                {editingDevice && (
+                  <div className="flex gap-2 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(odometer) || 0;
+                        setLastOilChangeOdometer(current.toString());
+                      }}
+                      className="flex-1 bg-[#1A1E26] hover:bg-[#232833] text-white font-semibold py-1.5 px-3 rounded-lg text-[10px] transition-colors border border-borderDark cursor-pointer"
+                    >
+                      Reset Oil Change (to Current)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = parseFloat(odometer) || 0;
+                        setLastTireChangeOdometer(current.toString());
+                      }}
+                      className="flex-1 bg-[#1A1E26] hover:bg-[#232833] text-white font-semibold py-1.5 px-3 rounded-lg text-[10px] transition-colors border border-borderDark cursor-pointer"
+                    >
+                      Reset Tire Rotation (to Current)
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Footer Actions */}

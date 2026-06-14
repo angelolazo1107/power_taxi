@@ -7,13 +7,63 @@ export function TaxiMeter() {
   const [status, setStatus] = useState<MeterStatus>('vacant');
   const [showMemory, setShowMemory] = useState(false);
   const [time, setTime] = useState(new Date());
-  
-  const rawFare = status === 'vacant' ? 0.00 : (status === 'hired' ? 124.47 : 850.12);
+  const [isDiscounted, setIsDiscounted] = useState(false);
+
+  // Simulated state values
+  const [distance, setDistance] = useState(0.0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Active calibration rates (same as default settings)
+  const baseFare = 50.0;
+  const ratePerKm = 13.50;
+  const ratePerMinute = 2.0;
+
+  // Handle status transitions
+  useEffect(() => {
+    if (status === 'vacant') {
+      setDistance(0.0);
+      setElapsedSeconds(0);
+    }
+  }, [status]);
+
+  // Tick elapsed time and distance while HIRED
+  useEffect(() => {
+    if (status !== 'hired') return;
+
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+      // Simulate driving speed of ~72 km/h (0.02 km per second)
+      setDistance((prev) => prev + 0.02);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status]);
+
+  // Calculate fare dynamically
+  let rawFare = 0.0;
+  if (status !== 'vacant') {
+    const distanceFare = distance * ratePerKm;
+    const timeFare = (elapsedSeconds / 60) * ratePerMinute;
+    rawFare = baseFare + distanceFare + timeFare;
+  }
+
   // Round to nearest 0.25
-  const fare = Math.round(rawFare * 4) / 4;
-  
-  const distance = status === 'vacant' ? 0.0 : 8.1;
-  const elapsed = status === 'vacant' ? '00:00' : '25:00';
+  const fare = Math.round(rawFare * (isDiscounted ? 0.8 : 1) * 4) / 4;
+
+  // Format elapsed seconds as MM:SS or HH:MM:SS
+  const formatElapsed = (totalSecs: number) => {
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+
+    const parts = [];
+    if (hrs > 0) parts.push(hrs.toString().padStart(2, '0'));
+    parts.push(mins.toString().padStart(2, '0'));
+    parts.push(secs.toString().padStart(2, '0'));
+    return parts.join(':');
+  };
+
+  const elapsed = formatElapsed(elapsedSeconds);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -126,6 +176,28 @@ export function TaxiMeter() {
               alt="Driver Profile" 
               className="w-full h-full object-cover"
             />
+          </div>
+          <div className="mt-auto w-full flex justify-around gap-2 pt-8">
+            <button
+              onClick={() => setIsDiscounted(false)}
+              className={`flex-1 py-3 rounded-lg font-bold border-2 transition-all ${
+                !isDiscounted 
+                  ? 'bg-[#FF7121] border-[#FF7121] text-white shadow-lg' 
+                  : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              NO DISCOUNT
+            </button>
+            <button
+              onClick={() => setIsDiscounted(true)}
+              className={`flex-1 py-3 rounded-lg font-bold border-2 transition-all ${
+                isDiscounted 
+                  ? 'bg-[#FF7121] border-[#FF7121] text-white shadow-lg' 
+                  : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              DISCOUNT
+            </button>
           </div>
         </div>
       </div>

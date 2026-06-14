@@ -17,9 +17,13 @@ import 'package:powertaxi/repository/firebase_ride_repository.dart';
 import 'package:powertaxi/repository/ride_repository.dart';
 import 'package:powertaxi/screen/taxi_meter_screen.dart';
 import 'package:powertaxi/services/auth_service.dart';
+import 'package:powertaxi/services/tts_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize TTS Service
+  await TtsService().init();
 
   // 1. Force Landscape for the Terminal Experience
   await SystemChrome.setPreferredOrientations([
@@ -34,7 +38,12 @@ void main() async {
 
   // ─── EMERGENCY RECOVERY ────────────────────────────────────────────────────
   // TODO: Remove this call after first successful run
-  await RecoveryUtils.createEmergencyAdmin('admin@powertaxi.com', 'Admin@123');
+  try {
+    await RecoveryUtils.createEmergencyAdmin('admin@powertaxi.com', 'Admin@123')
+        .timeout(const Duration(seconds: 3));
+  } catch (e) {
+    debugPrint('Recovery: Skipping emergency admin creation/update (offline or timed out): $e');
+  }
   // ──────────────────────────────────────────────────────────────────────────
 
   // 3. Check persistent login state
@@ -51,6 +60,23 @@ void main() async {
     if (!results.contains(ConnectivityResult.none)) {
       debugPrint("🌐 Internet detected! Triggering background sync...");
       rideRepository.syncPendingRides();
+      
+      final auth = AuthService();
+      auth.syncDeviceData().then((_) async {
+        final prefs = await SharedPreferences.getInstance();
+        final String? serial = prefs.getString('deviceSerialNo');
+        final bool isDriverLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+        final String? driverName = prefs.getString('driverName');
+        if (serial != null && serial.isNotEmpty) {
+          auth.updateDeviceStatus(
+            serial,
+            status: isDriverLoggedIn ? 'idle' : 'offline',
+            driverName: isDriverLoggedIn ? (driverName ?? 'Driver') : null,
+          );
+        }
+      }).catchError((e) {
+        debugPrint("⚠️ Background syncDeviceData failed on connectivity recovery: $e");
+      });
     }
   });
 

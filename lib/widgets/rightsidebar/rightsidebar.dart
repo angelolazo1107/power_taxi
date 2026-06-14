@@ -184,7 +184,7 @@ Widget buildRightSidebar(BuildContext context, TaxiMeterState state) {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: buildSettingsOverlay(context, state),
+                    child: buildSettingsOverlay(context, state, () {}),
                   ),
                 ),
               ),
@@ -602,6 +602,10 @@ void _showStartTripDialog(BuildContext context, TaxiMeterBloc bloc) {
 
 Widget _buildTripExpansionTile(BuildContext context, RideRecord ride) {
   final bool isCancelled = ride.status == 'cancelled';
+  final bloc = context.read<TaxiMeterBloc>();
+  final double baseFareVal = bloc.baseFare;
+  final double ratePerKmVal = bloc.ratePerKm;
+  final double ratePerMinuteVal = bloc.ratePerMinute;
 
   // Time Formatter helper
   String formatTime(DateTime? time) {
@@ -754,16 +758,16 @@ Widget _buildTripExpansionTile(BuildContext context, RideRecord ride) {
                         ],
                       ),
                       const Divider(color: Color(0xFF38404E), height: 20),
-                      _buildFareRow('Flag Down', 50.00),
+                      _buildFareRow('Flag Down', baseFareVal),
                       _buildFareRow(
-                        'Distance (${(ride.distanceMeters / 1000).toStringAsFixed(2)}km × ₱13.5)',
-                        (ride.distanceMeters / 1000) * 13.5,
+                        'Distance (${(ride.distanceMeters / 1000).floor()}km × ₱$ratePerKmVal)',
+                        (ride.distanceMeters / 1000).floor() * ratePerKmVal,
                       ),
                       _buildFareRow(
-                        'Time (${ride.endTime?.difference(ride.startTime).inMinutes ?? 0}m × ₱2)',
+                        'Time (${ride.endTime?.difference(ride.startTime).inMinutes ?? 0}m × ₱${ratePerMinuteVal.toStringAsFixed(0)})',
                         (ride.endTime?.difference(ride.startTime).inMinutes ??
                                 0) *
-                            2.0,
+                            ratePerMinuteVal,
                       ),
                       const Divider(color: Color(0xFF38404E), height: 20),
                       _buildFareRow(
