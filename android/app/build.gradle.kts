@@ -63,23 +63,9 @@ android {
         debug {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            // signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("debug")
 
             versionNameSuffix = "-debug"
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-
-        create("uat") {
-            // isDebuggable = true
-            isMinifyEnabled = true
-            isShrinkResources = true
-
-            signingConfig = signingConfigs.getByName("release")
-            // applicationIdSuffix = ".uat"
-            versionNameSuffix = "-uat"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -99,27 +85,13 @@ android {
         }
     }
 
-    /* 
-    applicationVariants.all {
-        val buildTypeName = buildType.name
-        val versionName = flutter.versionName
-        val versionCode = flutter.versionCode
-        outputs.all {
-            val apkOutput = this as? com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            if (apkOutput != null) {
-                apkOutput.outputFileName = "powertaxi_app_v${versionName}_${versionCode}_${buildTypeName}.apk"
-            }
-        }
-    } */
-
     android.applicationVariants.all {
             outputs.map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
                 .forEach { output ->
                     val buildTypeName = buildType.name
                     val buildGitName = project.androidGitVersion.name()
 
-                    val name = "powertaxi-v${versionName}-${buildTypeName}"
-                    output.outputFileName = "${name}.apk"
+                    output.outputFileName = "powertaxi-v${versionName}.apk"
                 }
         }
 }
