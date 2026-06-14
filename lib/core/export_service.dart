@@ -7,8 +7,8 @@ class ExportService {
   static Future<Directory> _getDailyDirectory() async {
     Directory baseDir;
     if (Platform.isAndroid) {
-      // Save to the public Documents folder
-      const documentPath = '/storage/emulated/0/Documents/powertaxi';
+      // Save to the public Download folder for easier access
+      const documentPath = '/storage/emulated/0/Download/powertaxi';
       baseDir = Directory(documentPath);
     } else {
       baseDir = Directory('/tmp/powertaxi');

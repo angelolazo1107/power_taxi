@@ -59,6 +59,8 @@ class ApplyStoppedDiscount extends TaxiMeterEvent {
 
 class PauseRide extends TaxiMeterEvent {}
 
+class ResumeFromStopped extends TaxiMeterEvent {}
+
 class ResumeRide extends TaxiMeterEvent {}
 
 /// WAIT mode: meter keeps ticking (charging per-minute), distance stops.
@@ -68,6 +70,17 @@ class StartWaiting extends TaxiMeterEvent {}
 class StopWaiting extends TaxiMeterEvent {}
 
 class CancelRide extends TaxiMeterEvent {}
+
+// --- Shift Management ---
+class StartShift extends TaxiMeterEvent {}
+class ToggleBreakTime extends TaxiMeterEvent {}
+class EndShift extends TaxiMeterEvent {
+  final String pin;
+  const EndShift(this.pin);
+  @override
+  List<Object?> get props => [pin];
+}
+// ------------------------
 
 class ToggleSettings extends TaxiMeterEvent {
   final bool isVisible;
@@ -177,6 +190,13 @@ class UpdateDriverInfo extends TaxiMeterEvent {
     tin,
     minNo,
   ];
+}
+
+class UpdateShiftFlowEnabled extends TaxiMeterEvent {
+  final bool enabled;
+  const UpdateShiftFlowEnabled(this.enabled);
+  @override
+  List<Object?> get props => [enabled];
 }
 
 class SaveCalibration extends TaxiMeterEvent {

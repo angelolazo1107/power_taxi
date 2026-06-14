@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { 
   subscribeToUsers, 
   subscribeToCompanies, 
@@ -6,7 +7,8 @@ import {
   updateUser, 
   deleteUser,
   hashSha256,
-  uploadDriverPhoto
+  uploadDriverPhoto,
+  db
 } from '../services/firebase';
 import type { AppUser, Company } from '../services/firebase';
 import { 
@@ -126,10 +128,64 @@ export const UserManagement: React.FC<UserManagementProps> = ({ selectedCompanyI
       return;
     }
 
-    // PIN validation for drivers
-    if (role === 'driver' && pin.trim().length > 0 && pin.trim().length !== 4) {
-      showToast("PIN must be exactly 4 digits.", true);
-      return;
+    // PIN validation and duplicate check for drivers
+    if (role === 'driver') {
+      const pinVal = pin.trim();
+      const needsPinCheck = editingUser ? pinVal.length > 0 : true;
+      const pinToCheck = pinVal || '123456';
+
+      if (needsPinCheck) {
+        if (pinToCheck.length !== 6) {
+          showToast("PIN must be exactly 6 digits.", true);
+          return;
+        }
+
+        setSaving(true);
+        try {
+          const hashedPinToCheck = await hashSha256(pinToCheck);
+          const usersRef = collection(db, 'users');
+          
+          // Check for duplicate hashed PIN
+          const qHashed = query(
+            usersRef, 
+            where('role', '==', 'driver'), 
+            where('pin', '==', hashedPinToCheck)
+          );
+          // Check for duplicate plain text PIN
+          const qPlain = query(
+            usersRef, 
+            where('role', '==', 'driver'), 
+            where('pin', '==', pinToCheck)
+          );
+
+          const [hashedSnap, plainSnap] = await Promise.all([
+            getDocs(qHashed),
+            getDocs(qPlain)
+          ]);
+
+          let duplicateUser: any = null;
+          hashedSnap.forEach((docSnap) => {
+            if (!editingUser || docSnap.id !== editingUser.id) {
+              duplicateUser = docSnap.data();
+            }
+          });
+          plainSnap.forEach((docSnap) => {
+            if (!editingUser || docSnap.id !== editingUser.id) {
+              duplicateUser = docSnap.data();
+            }
+          });
+
+          if (duplicateUser) {
+            showToast(`PIN is already assigned to driver "${duplicateUser.name || duplicateUser.email}". Please choose a unique PIN.`, true);
+            setSaving(false);
+            return;
+          }
+        } catch (err: any) {
+          showToast(`Error validating PIN: ${err.message || err}`, true);
+          setSaving(false);
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -161,10 +217,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ selectedCompanyI
         });
         showToast(`User account for "${name}" updated successfully!`);
       } else {
-        // If driver is added without PIN, warn or set default '1234'
+        // If driver is added without PIN, warn or set default '123456'
         let hashedPin = null;
         if (role === 'driver') {
-          const pinVal = pin.trim() || '1234';
+          const pinVal = pin.trim() || '123456';
           hashedPin = await hashSha256(pinVal);
         }
 
@@ -193,7 +249,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ selectedCompanyI
             photoUrl: uploadedUrl
           });
         }
-        showToast(`New user registered! Default password: 'password123'${role === 'driver' ? ", PIN: " + (pin.trim() || '1234') : ""}.`);
+        showToast(`New user registered! Default password: 'password123'${role === 'driver' ? ", PIN: " + (pin.trim() || '123456') : ""}.`);
       }
       setIsDialogOpen(false);
     } catch (err: any) {
@@ -567,20 +623,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({ selectedCompanyI
                     Driver Login Authentication
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold text-textFaint uppercase tracking-wider block">4-Digit Login PIN</label>
+                    <label className="text-[9px] font-bold text-textFaint uppercase tracking-wider block">6-Digit Login PIN</label>
                     <input 
                       type="password"
-                      maxLength={4}
+                      maxLength={6}
                       pattern="[0-9]*"
                       inputMode="numeric"
                       value={pin}
                       onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      placeholder={editingUser ? "•••• (Unchanged)" : "e.g. 1234"}
-                      className="w-24 tracking-[8px] font-bold px-4 py-2.5 bg-cardColor border border-borderDark rounded-lg text-xs text-white placeholder-textFaint/60 focus:outline-none focus:border-accentOrange transition-colors text-center"
+                      placeholder={editingUser ? "•••••• (Unchanged)" : "e.g. 123456"}
+                      className="w-32 tracking-[8px] font-bold px-4 py-2.5 bg-cardColor border border-borderDark rounded-lg text-xs text-white placeholder-textFaint/60 focus:outline-none focus:border-accentOrange transition-colors text-center"
                     />
                     <p className="text-[9px] text-textFaint leading-relaxed mt-1">
                       {editingUser 
-                        ? "Leave empty to keep current PIN. Enter exactly 4 digits to update."
+                        ? "Leave empty to keep current PIN. Enter exactly 6 digits to update."
                         : "Required. This PIN will be securely hashed with SHA-256 for mobile terminals."}
                     </p>
                   </div>

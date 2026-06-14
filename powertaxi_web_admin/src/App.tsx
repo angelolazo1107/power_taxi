@@ -8,6 +8,7 @@ import { TripRecords } from './components/TripRecords';
 import { Reports } from './components/Reports';
 import { TaxiMeter } from './components/TaxiMeter';
 import { Login } from './components/Login';
+import { Maintenance } from './components/Maintenance';
 import { subscribeToCompanies } from './services/firebase';
 import type { Company } from './services/firebase';
 import { 
@@ -23,12 +24,16 @@ import {
   ChevronDown,
   User,
   AlertTriangle,
-  MonitorSmartphone
+  MonitorSmartphone,
+  Sun,
+  Moon,
+  Wrench
 } from 'lucide-react';
 
 const SLUG_TO_NAV: Record<string, string> = {
   'dispatch': 'Dispatch',
   'devices': 'Devices',
+  'maintenance': 'Maintenance',
   'companies': 'Companies',
   'users': 'Users',
   'fare-settings': 'Fare Settings',
@@ -40,6 +45,7 @@ const SLUG_TO_NAV: Record<string, string> = {
 const NAV_TO_SLUG: Record<string, string> = {
   'Dispatch': 'dispatch',
   'Devices': 'devices',
+  'Maintenance': 'maintenance',
   'Companies': 'companies',
   'Users': 'users',
   'Fare Settings': 'fare-settings',
@@ -49,6 +55,11 @@ const NAV_TO_SLUG: Record<string, string> = {
 };
 
 export default function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('power_taxi_theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const saved = localStorage.getItem('power_taxi_user');
     return saved ? JSON.parse(saved) : null;
@@ -69,11 +80,17 @@ export default function App() {
     setProfileDropdownOpen(false);
   };
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('power_taxi_theme', theme);
+  }, [theme]);
+
   // Nav menu items
   const navItems = [
     { label: 'Meter Simulator', icon: MonitorSmartphone },
     { label: 'Dispatch', icon: Compass },
     { label: 'Devices', icon: Tablet },
+    { label: 'Maintenance', icon: Wrench },
     { label: 'Companies', icon: Building },
     { label: 'Users', icon: Users },
     { label: 'Fare Settings', icon: Calculator },
@@ -145,6 +162,8 @@ export default function App() {
         return <UserManagement selectedCompanyId={selectedCompanyId} />;
       case 'Devices':
         return <DevicesManagement selectedCompanyId={selectedCompanyId} />;
+      case 'Maintenance':
+        return <Maintenance selectedCompanyId={selectedCompanyId} />;
       case 'Companies':
         return <CompaniesManagement />;
       case 'Fare Settings':
@@ -190,10 +209,10 @@ export default function App() {
           
           {/* Logo Header */}
           <div className="h-16 flex items-center gap-3 px-6 border-b border-borderDark shrink-0">
-            <div className="w-7 h-7 bg-accentOrange rounded-lg flex items-center justify-center text-black shadow-lg shadow-accentOrange/25">
-              <Bolt size={18} strokeWidth={2.5} />
+            <div className="w-8 h-8 bg-accentOrange rounded-lg flex items-center justify-center text-black shadow-lg shadow-accentOrange/25">
+              <Bolt size={20} strokeWidth={2.5} />
             </div>
-            <span className="font-black text-sm tracking-wider uppercase text-white">
+            <span className="font-black text-base tracking-wider uppercase text-white">
               PowerTaxi
             </span>
           </div>
@@ -205,12 +224,12 @@ export default function App() {
               className="w-full flex items-center justify-between gap-3 px-3 py-2 bg-borderDark hover:bg-borderDark/80 rounded-lg border border-borderDark text-left transition-colors"
             >
               <div className="flex items-center gap-2 overflow-hidden">
-                <Building className="text-textFaint shrink-0" size={13} />
-                <span className="text-[11px] font-bold text-white/80 truncate">
+                <Building className="text-textFaint shrink-0" size={14} />
+                <span className="text-xs font-bold text-white/80 truncate">
                   {selectedCompanyName}
                 </span>
               </div>
-              <ChevronDown className="text-textFaint shrink-0" size={13} />
+              <ChevronDown className="text-textFaint shrink-0" size={14} />
             </button>
 
             {/* Dropdown Menu */}
@@ -252,14 +271,14 @@ export default function App() {
                     setCompanyDropdownOpen(false);
                     setProfileDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left transition-all ${
                     isSelected 
                       ? 'bg-accentOrange/10 text-white border border-accentOrange/25 shadow-sm' 
                       : 'text-textFaint hover:text-white/80 hover:bg-borderDark/20'
                   }`}
                 >
-                  <Icon size={16} className={isSelected ? 'text-accentOrange' : 'text-textFaint'} />
-                  <span className="text-xs font-semibold tracking-wide">
+                  <Icon size={18} className={isSelected ? 'text-accentOrange' : 'text-textFaint'} />
+                  <span className="text-sm font-semibold tracking-wide">
                     {item.label}
                   </span>
                 </button>
@@ -272,10 +291,10 @@ export default function App() {
         <div className="p-4 border-t border-borderDark shrink-0">
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-red-400 hover:text-red-300 hover:bg-red-950/20 transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-red-400 hover:text-red-300 hover:bg-red-950/20 transition-colors"
           >
-            <LogOut size={16} />
-            <span className="text-xs font-bold tracking-wide">Logout</span>
+            <LogOut size={18} />
+            <span className="text-sm font-bold tracking-wide">Logout</span>
           </button>
         </div>
       </aside>
@@ -285,40 +304,51 @@ export default function App() {
         
         {/* Top Navbar */}
         <header className="h-16 bg-panel border-b border-borderDark flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-sm font-black tracking-wider text-white uppercase">
+          <h2 className="text-base font-black tracking-wider text-white uppercase">
             {selectedNav}
           </h2>
 
-          {/* User Profile */}
-          <div className="relative">
+          {/* User Profile & Theme Toggle */}
+          <div className="flex items-center gap-4">
             <button 
-              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+              className="p-2 text-textFaint hover:text-white hover:bg-borderDark/20 rounded-lg transition-colors border border-borderDark flex items-center justify-center cursor-pointer"
+              aria-label="Toggle Theme"
+              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
             >
-              <div className="w-8 h-8 rounded-full bg-borderDark border border-borderDark flex items-center justify-center text-white/80">
-                <User size={16} />
-              </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-white">{currentUser?.name || currentUser?.email || 'System User'}</p>
-                <p className="text-[10px] text-textFaint uppercase tracking-wider font-semibold">{(currentUser?.role || 'operator')}</p>
-              </div>
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
-            {/* Profile Dropdown Menu */}
-            {profileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#1A1E26] border border-borderDark rounded-lg shadow-2xl z-50 py-1">
-                <div className="px-4 py-2 border-b border-borderDark/60 text-[10px] text-textFaint truncate">
-                  Logged in as:
-                  <span className="block font-bold text-white/90 truncate">{currentUser?.email}</span>
+            <div className="relative">
+              <button 
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
+                <div className="w-9 h-9 rounded-full bg-borderDark border border-borderDark flex items-center justify-center text-white/80">
+                  <User size={18} />
                 </div>
-                <button 
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 hover:bg-borderDark/50 text-xs text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-bold text-white">{currentUser?.name || currentUser?.email || 'System User'}</p>
+                  <p className="text-xs text-textFaint uppercase tracking-wider font-semibold">{(currentUser?.role || 'operator')}</p>
+                </div>
+              </button>
+
+              {/* Profile Dropdown Menu */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-[#1A1E26] border border-borderDark rounded-lg shadow-2xl z-50 py-1">
+                  <div className="px-4 py-2 border-b border-borderDark/60 text-[10px] text-textFaint truncate">
+                    Logged in as:
+                    <span className="block font-bold text-white/90 truncate">{currentUser?.email}</span>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 hover:bg-borderDark/50 text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

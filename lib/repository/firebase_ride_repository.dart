@@ -119,6 +119,21 @@ class FirebaseRideRepository implements RideRepository {
   }
 
   @override
+  Future<void> resumeRide(String rideId) async {
+    if (await _hasInternet()) {
+      try {
+        await _firestore.collection(_collectionPath).doc(rideId).update({
+          'status': 'in-progress',
+          'endTime': FieldValue.delete(),
+        });
+        print("✅ Ride $rideId resumed in Firestore!");
+      } catch (e) {
+        print("⚠️ Could not resume ride in Firestore. Error: $e");
+      }
+    }
+  }
+
+  @override
   Future<void> cancelRide(String rideId) async {
     if (await _hasInternet()) {
       try {
