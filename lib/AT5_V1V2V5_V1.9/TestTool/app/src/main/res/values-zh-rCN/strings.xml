@@ -1,0 +1,248 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <string name="app_name">测试工具</string>
+    <string name="title">测试工具</string>
+    <string name="action_settings">设置</string>
+    <string name="button_settings">系统设置</string>
+    <string name="sim_butoon">SIM卡</string>
+    <string name="camera">相机</string>
+    <string name="photo">照片</string>
+    <string name="sd_button">存储卡</string>
+    <string name="sd_card">内部SD</string>
+    <string name="out_usb_card">外部USB</string>
+    <string name="progress">进度</string>
+    <string name="FreeMB">剩余容量</string>
+    <string name="AllMB">总容量</string>
+    <string name="process">进度</string>
+    <string name="begin_record">录音</string>
+    <string name="start_record">开始录音</string>
+    <string name="stop_record">停止录音</string>
+    <string name="play_record">播放录音</string>
+    <string name="video_button">视频</string>
+    <string name="start_button">播放音乐</string>
+    <string name="stop_button">停止播放</string>
+    <string name="ok">确定</string>
+    <string name="gsm_strength">GSM信号</string>
+    <string name="battery">电源</string>
+    <string name="gsensor">重力感应</string>
+    <string name="com">串口</string>
+    <string name="com_title"> 选择串口</string>
+    <string name="baud_title"> 选择波特率</string>
+    <string name="databits_title"> 选择数据位</string>
+    <string name="parity_title"> 选择奇偶校验</string>
+    <string name="stopbits_title"> 选择停止位</string>
+    <string name="text_music">音乐</string>
+    <string name="text_gps">GPS</string>
+    <string name="text_phone">拨号</string>
+    <string name="text_internet">互联网</string>
+    <string name="text_gpio">GPIO</string>
+    <string name="text_battery"></string>
+    <string name="text_ok">确定</string>
+    <string name="text_video">视频</string>
+    <string name="text_photo">图片</string>
+    <string name="text_browse">浏览器</string>
+    <string name="text_com">串口</string>
+    <string name="text_baud">波特率</string>
+    <string name="text_databits">数据位 </string>
+    <string name="text_parity">奇偶校验 </string>
+    <string name="text_stopbits">停止位 </string>
+    <string name="text_autotime">间隔</string>
+    <string name="text_openComButton">打开串口</string>
+    <string name="text_recvsend">接收</string>
+    <string name="text_sendsend">发送</string>
+    <string name="text_clearCount">清除计数</string>
+    <string name="text_clearrecv">清除接收</string>
+    <string name="text_clearsend">清除发送</string>
+    <string name="text_send">发送</string>
+    <string name="text_hex">十六进制:</string>
+    <string name="text_send_check">发送</string>
+    <string name="text_rec_check">接收</string>
+    <string name="text_autoSend">自动发送</string>
+    <string name="text_autotime_ms">毫秒</string>
+    <string name="text_recvsendcount_default">0</string>
+    <string name="text_sendsendcount_edit">0</string>
+    <string name="text_out1_tv">out1 status:</string>
+    <string name="text_out1_btn">高/低</string>
+    <string name="text_out2_tv">out2 status:</string>
+    <string name="text_out2_btn">高/低</string>
+    <string name="text_usb_host_1_2_switch_btn">高/低</string>
+    <string name="text_usb_host_1_2_switch_tv">usb_host_1_2_switch status:</string>
+    <string name="text_usb_host_3_switch_btn">高/低</string>
+    <string name="text_usb_host_3_switch_tv">usb_host_3_switch status:</string>
+    <string name="text_sim">sim card status:</string>
+    <string name="text_simcard_btn">高/低</string>
+    <string name="text_led_tv">LED status:</string>
+    <string name="text_led_btn">高/低</string>
+    <string name="text_lcd_btn">高/低</string>
+    <string name="text_in1">in_1 status:</string>
+    <string name="text_in3">in_3 status:</string>
+    <string name="text_in2">in_2 status</string>
+    <string name="text_lcd_back_tv">LCD status:</string>
+    <string name="text_acc_tv">ACC status:</string>
+    <string name="text_lon_tv">经度：</string>
+    <string name="text_lon_default_value">0.000000</string>
+    <string name="text_lat_tv">纬度：</string>
+    <string name="text_lat_default_value">0.000000</string>
+    <string name="text_gps_time">时间：</string>
+    <string name="text_gps_sate_tv">卫星数量：</string>
+    <string name="text_gps_time_default_value">00:00:00</string>
+    <string name="text_satellitenumber_default_value">0</string>
+    <string name="text_gps_speed_tv">速度：</string>
+    <string name="text_gps_antenna_tv">天线:</string>
+    <string name="text_gps_antenna_ok">连接</string>
+    <string name="text_gps_antenna_open">断开</string>
+    <string name="text_gps_antenna_short">短路</string>
+    <string name="text_gps_antenna_unknown">未知</string>
+    <string name="text_gps_speed_default_value">0.0</string>
+    <string name="text_gps_resetbtn_tv">  重置  </string>
+    <string name="text_in_sd_edit"> </string>
+    <string name="text_in_sd_all_edit"> </string>
+    <string name="text_in_sd_free_edit"> </string>
+    <string name="text_out_sd_edit"> </string>
+    <string name="text_out_sd_all_edit"> </string>
+    <string name="text_out_sd_free_edit"> </string>
+    <string name="text_out_tf_edit"> </string>
+    <string name="text_out_tf_all_edit"> </string>
+    <string name="text_out_tf_free_edit"> </string>
+    <string name="text_conButton">连接</string>
+    <string name="text_gpsButton">自动发送GPS</string>
+    <string name="text_sendEdit">发送文本</string>
+    <string name="text_sendButton">发送</string>
+    <string name="text_recText">接收文本</string>
+    <string name="text_recButton">清除</string>
+    <string name="text_Unknown">未知状态</string>
+    
+    <string name="built_in_sd">内置SD卡正常</string>
+    <string name="built_in_sd_error">未找到内置SD卡</string>
+    <string name="external_usb_card">外部USB正常</string>
+    <string name="external_usb_card_error">未找到外部USB</string>
+    <string name="external_tf_card">外部tf卡正常</string>
+    <string name="external_tf_card_error">未找外部tf卡</string>
+    
+    <string name="edit_key_value">输入键值</string>
+    <string name="key">键值</string>
+    <string name="edit_key">编辑</string>
+    <string name="speed">速度</string>
+    <string name="total_pulse">总脉冲</string>
+    <string name="total_mileage">总里程</string>
+    <string name="total_time">总时间</string>
+    <string name="invalid">键值非法</string>
+  
+    <string-array name="coms">
+        <item>/dev/ttyS0</item>
+        <item>/dev/ttyS1</item>
+        <item>/dev/ttyS3</item>
+        <item>/dev/ttyS4</item>
+        <item>/dev/ttyUSB0</item>
+        <item>/dev/ttyUSB4</item>
+        <item>/dev/ttyUSB5</item>
+    </string-array>
+    <string-array name="bauds">		
+        <item>1200</item>
+        <item>2400</item>
+        <item>4800</item>
+        <item>9600</item>
+        <item>19200</item>
+        <item>38400</item>
+        <item>57600</item>
+        <item>115200</item>
+    </string-array>
+    <string-array name="databits">
+        <item>7</item>
+        <item>8</item>
+    </string-array>
+    <string-array name="parity">
+        <item>No parity</item>
+        <item>Odd parity</item>
+        <item>Even parity</item>
+    </string-array>
+    <string-array name="stopbits">
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+    <string name="socket">网络通信</string>
+    <string name="out_tf_card">外部TF</string>
+    
+    <string name="serialPort_open_fail">串口打开失败!</string>
+    <string name="not_find_sd_card">未找到SD卡,请检查SD卡是否插入.</string>
+    <string name="recording_message">正在录音中.</string>
+    <string name="record_first">请先录制音频，然后暂停，最后播放音频。</string>
+    <string name="gps_works_normally">GPS模块工作正常</string>
+    <string name="open_gps_message">请打开GPS设备.</string>
+    <string name="create_dir_fail">新建HW_VEDIO目录失败.</string>
+    <string name="record_successfully">录像成功!</string>
+    <string name="start_record_message">开始录像.</string>
+    <string name="record_failed">录像失败.</string>
+    <string name="phote_successfully">拍照成功.</string>
+    <string name="phote_fail">拍照失败.</string>
+    <string name="close_serialport">关闭串口</string>
+    <string name="text_pluse">脉冲</string>
+		<string name="start">开始</string>
+		<string name="stop">停止</string>
+		<string name="not_count_pluse">未启动脉冲统计!</string>
+		<string name="total">总共</string>
+		<string name="time">时间</string>
+		<string name="oemkeys">OEM按键</string>
+		<string name="oem_key_setting_message">如果应用要使用OEM按键，请关闭系统默认使用OEM按键( 设置->安全->系统安全设置->系统默认使用OEM按键)</string>
+		<string name="go_settings">设置</string>
+		<string name="rfid">RFID</string>
+		<string name="rfid_sdk">RFID接口</string>
+		<string name="main_card_id">卡号</string>
+		<string name="wallet">钱包</string>
+		 <string name="block_wallet">请选择数据块作为钱包存储</string>
+	    <string name="Initialize_wallet">初始钱包</string>
+	    <string name="decrease_wallet">扣值</string>
+	    <string name="increase_wallet">充值</string>
+	    <string name="check_wallet">查询余额</string>
+	    <string name="card_type">类型:</string>
+	    <string name="card_id">卡号:</string>
+	    <string name="def_value"></string>
+	    <string name="read">读取</string>
+	    <string name="write">写入</string>
+	    <string name="secret">加密</string>
+	    <string name="read_rfid">获取卡号和卡类型</string>
+	    <string name="clean">清除</string>
+	    <string name="key_a">键A:</string>
+	    <string name="control">控制码:</string>
+	    <string name="key_b">键B:</string>
+	    <string name="save">保存</string>
+	    <string name="wallet_manager">钱包管理</string>
+	    <string name="swipe_card">请刷卡!</string>
+	    <string name="successful_charge">刷卡成功.</string>
+		<string name="credit_low">余额不足.</string>
+		<string name="decrease_value">扣除金额:</string>
+    <string name="gpio_get">GPIO 轮询</string>
+    <string name="gpio_listener">GPIO 监听</string>
+    <string name="warning">警告</string>
+    <string name="warning_message">自动发送已经打开，确认关闭！</string>
+    <string name="connection_successful">连 接 成 功</string>
+		<string name="reconnecting">正在重新连接......</string>
+	<string name="can_fd">CanFd</string>
+	<string name="can">Can</string>
+	<string name="open_can_device">打开</string>
+	<string name="close_can_device">关闭</string>
+	<string name="read_can_data">读取</string>
+	<string name="write_can_data">写入</string>
+	<string name="read_can_status">状态</string>
+	<string name="read_can_version">版本</string>
+	<string name="can_flush">Flush</string>
+	<string name="can_read_write_value">Can 写入: <xliff:g id="write" example="5">%d</xliff:g>  Can 读取: <xliff:g id="read" example="5">%d</xliff:g></string>
+	<string name="text_oiml">OIML</string>
+	<string name="main_power_off">主电源关闭:</string>
+	<string name="main_power_on">主电源开启:</string>
+	<string name="for_hire">掉电告警:</string>
+	<string name="close_app">关闭APK:</string>
+	<string name="shutdown">关机:</string>
+	<string name="brightness">屏幕亮度</string>
+	<string name="day_time_setting">白天时间设置:</string>
+	<string name="to">到</string>
+	<string name="brightness_setting">屏幕亮度:</string>
+	<string name="day_level">白天:</string>
+	<string name="night_level">黑夜:</string>
+    <string name="pulse_width_speed">速度1 (脉冲宽度)</string>
+    <string name="pulse_speed">速度2 (脉冲)</string>
+    <string name="final_speed">速度3 (最终)</string>
+</resources>

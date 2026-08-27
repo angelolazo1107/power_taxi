@@ -1,0 +1,23 @@
+<resources>
+
+    <!-- Default screen margins, per the Android Design guidelines. -->
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    <dimen name="common_button_textSize">30sp</dimen>
+    <dimen name="common_textview_textSize">35sp</dimen>
+    <dimen name="activity_main_button_textSize">30sp</dimen>
+    <dimen name="activity_serialport_textSize">25sp</dimen>
+    <dimen name="activity_gpio_textSize">35sp</dimen>
+    <dimen name="activity_sdcard_textSize">25sp</dimen>
+    <dimen name="activity_location_textSize">22sp</dimen>
+    <dimen name="activity_socket_textSize">25sp</dimen>
+    <dimen name="pluse_textSize">30sp</dimen>
+    <dimen name="oemkeys_textSize">30sp</dimen>
+    <dimen name="rfid_textsize">15sp</dimen>
+    <dimen name="rfid_marginsize">2dp</dimen>
+    <dimen name="rfid_margintop">5dp</dimen>
+    <dimen name="can_main_textSize">20sp</dimen>
+    <dimen name="can_log_textSize">16sp</dimen>
+    <dimen name="can_layout_marginBottom">20dp</dimen>
+    <dimen name="oiml_textSize">20sp</dimen>
+</resources>

@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="@drawable/bg_testtool"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent" >
+
+        <LinearLayout
+            android:layout_width="289dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="3dp"
+            android:orientation="vertical" >
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:orientation="horizontal" >
+
+                <TextView
+                    android:id="@+id/comTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="5"
+                    android:text="@string/text_com"
+                    android:textAlignment="center"
+                    android:textSize="@dimen/activity_serialport_textSize"
+                    android:textStyle="bold|normal" />
+
+                <Spinner
+                    android:id="@+id/comSpinner"
+                    android:layout_width="150dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="5"
+                    android:prompt="@string/com_title"
+                    android:textAlignment="center"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1" >
+
+                <TextView
+                    android:id="@+id/baudTextView"
+                    android:layout_width="116dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/text_baud"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <Spinner
+                    android:id="@+id/baudSpinner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:entries="@array/bauds"
+                    android:prompt="@string/baud_title"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1" >
+
+                <TextView
+                    android:layout_width="116dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/text_databits"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <Spinner
+                    android:id="@+id/databitsSpinner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:entries="@array/databits"
+                    android:prompt="@string/databits_title"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1" >
+
+                <TextView
+                    android:layout_width="116dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/text_parity"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <Spinner
+                    android:id="@+id/paritySpinner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:entries="@array/parity"
+                    android:prompt="@string/parity_title"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1" >
+
+                <TextView
+                    android:layout_width="116dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/text_stopbits"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <Spinner
+                    android:id="@+id/stopbitsSpinner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:entries="@array/stopbits"
+                    android:prompt="@string/stopbits_title"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1" >
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="@string/text_autotime"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <EditText
+                    android:id="@+id/autotimeEditText"
+                    android:layout_marginLeft="10dp"
+                    android:layout_marginRight="10dp"
+                    android:layout_width="70dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.07"
+                    android:background="#c6c6c6"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/text_autotime_ms"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="5dp"
+                android:layout_marginTop="30dp" >
+
+                <Button
+                    android:id="@+id/openComButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="106dp"
+                    android:text="@string/text_openComButton"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="5dp"
+            android:layout_weight="0"
+            android:orientation="vertical" >
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" >
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_marginTop="5dp"
+                    android:layout_weight="1" >
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="3dp"
+                        android:layout_marginRight="3dp"
+                        android:text="@string/text_recvsend"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <EditText
+                        android:id="@+id/recvsendcountEditText"
+                        android:layout_width="66dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.5"
+                        android:background="#c6c6c6"
+                        android:ems="10"
+                        android:focusable="false"
+                        android:gravity="center"
+                        android:text="@string/text_recvsendcount_default"
+                        android:textAlignment="center"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/activity_serialport_textSize" >
+
+                        <requestFocus />
+                    </EditText>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="3dp"
+                        android:layout_marginRight="3dp"
+                        android:text="@string/text_sendsend"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <EditText
+                        android:id="@+id/sendsendcountEditText"
+                        android:layout_width="66dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.5"
+                        android:background="#c6c6c6"
+                        android:ems="10"
+                        android:focusable="false"
+                        android:gravity="center"
+                        android:text="@string/text_sendsendcount_edit"
+                        android:textAlignment="center"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent" >
+
+                    <Button
+                        android:id="@+id/clearCountButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="5dp"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical|center_horizontal"
+                        android:text="@string/text_clearCount"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <Button
+                        android:id="@+id/clearrecvButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="5dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/text_clearrecv"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <Button
+                        android:id="@+id/clearsendButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="5dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/text_clearsend"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.49"
+                android:orientation="vertical" >
+
+                <TextView
+                    android:id="@+id/recTextView"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:background="#ffffff"
+                    android:focusable="false"
+                    android:scrollbars="vertical"
+                    android:textColor="#000080"
+                    android:textSize="@dimen/activity_serialport_textSize"
+                    tools:ignore="SpUsage" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.19"
+                android:orientation="vertical" >
+
+                <EditText
+                    android:id="@+id/sendEditText"
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:layout_marginTop="10dp"
+                    android:background="#c6c6c6"
+                    android:ems="10"
+                    android:gravity="center"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/activity_serialport_textSize" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp" >
+
+                <LinearLayout
+                    android:layout_width="190dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:layout_weight="0.67" >
+
+                    <Button
+                        android:id="@+id/sendButton"
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent"
+                        android:text="@string/text_send"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" >
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/text_hex"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <CheckBox
+                        android:id="@+id/send_checkBox"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/text_send_check"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <CheckBox
+                        android:id="@+id/rec_checkBox"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/text_rec_check"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+
+                    <CheckBox
+                        android:id="@+id/autoSendButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        android:text="@string/text_autoSend"
+                        android:textSize="@dimen/activity_serialport_textSize" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

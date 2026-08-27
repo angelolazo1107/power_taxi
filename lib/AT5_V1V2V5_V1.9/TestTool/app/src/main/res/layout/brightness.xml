@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_testtool"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical" >
+        
+        <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:gravity="center_vertical"
+	        android:orientation="horizontal" >
+			<TextView
+		        android:layout_width="350dp"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/common_textview_textSize"
+		        android:text="@string/day_time_setting" />
+			
+			<TimePicker
+		        android:id="@+id/day_time_from"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content" />
+
+		    <TextView
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:paddingLeft="50dp"
+		        android:textSize="25sp"
+		        android:text="@string/to" />
+		        
+			<TimePicker
+		        android:id="@+id/day_time_to"
+		        android:paddingLeft="50dp"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content" />
+        
+    	</LinearLayout>
+    	
+         <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:gravity="center_vertical"
+	        android:paddingTop="30dp"
+	        android:orientation="horizontal" >
+			
+         <TextView
+		        android:layout_width="350dp"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/common_textview_textSize"
+		        android:text="@string/brightness_setting" />
+		   
+		  <TextView
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:textSize="25sp"
+		        android:text="@string/day_level" />
+
+	     <Spinner
+				android:id="@+id/day_level"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"/> 
+
+		   <TextView
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:paddingLeft="80dp"
+		        android:textSize="25sp"
+		        android:text="@string/night_level" />
+
+		   <Spinner
+				android:id="@+id/night_level"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"/> 
+        
+    	</LinearLayout>
+    	
+        <LinearLayout
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:paddingTop="50dp"
+	        android:gravity="center"
+	        android:orientation="vertical" >
+			
+           <Button
+           		android:id="@+id/save"
+		        android:layout_width="300dp"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/common_button_textSize"
+		        android:text="@string/save" />
+        
+    	</LinearLayout>
+
+      
+    </LinearLayout>
+
+</LinearLayout>

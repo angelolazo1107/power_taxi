@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AbsoluteLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     android:id="@+id/base"
+     android:background="@drawable/bg_testtool"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" >
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="20dp"
+        android:text="@string/text_lon_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/longitude"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="50dp"
+        android:text="@string/text_lon_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="80dp"
+        android:text="@string/text_lat_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/latitude"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="110dp"
+        android:text="@string/text_lat_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="140dp"
+        android:text="@string/text_gps_time"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="170dp"
+        android:text="@string/text_gps_time_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="260dp"
+        android:text="@string/text_gps_sate_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/satellitenumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="290dp"
+        android:text="@string/text_satellitenumber_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="200dp"
+        android:text="@string/text_gps_speed_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/speed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="230dp"
+        android:text="@string/text_gps_speed_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="320dp"
+        android:text="@string/text_gps_antenna_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <TextView
+        android:id="@+id/antenna"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="350dp"
+        android:text="@string/text_gps_speed_default_value"
+        android:textSize="@dimen/activity_location_textSize" />
+
+    <Button
+        android:id="@+id/resetbtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_x="10dp"
+        android:layout_y="400dp"
+        android:background="@drawable/blue"
+        android:text="@string/text_gps_resetbtn_tv"
+        android:textSize="@dimen/activity_location_textSize" />
+
+</AbsoluteLayout>

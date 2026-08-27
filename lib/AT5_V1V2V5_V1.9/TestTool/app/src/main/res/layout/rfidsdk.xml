@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rfid"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="@dimen/rfid_marginsize"
+    android:layout_marginLeft="@dimen/rfid_marginsize"
+    android:layout_marginRight="@dimen/rfid_marginsize"
+    android:layout_marginBottom ="@dimen/rfid_marginsize"
+    android:background="@drawable/bg_testtool"
+    android:orientation="vertical">
+	<!-- ==============================Log ========================= -->
+     <LinearLayout 
+        android:layout_width="match_parent"
+       	android:layout_weight="1"
+        android:layout_height="0dp"
+        android:layout_marginBottom ="@dimen/rfid_marginsize"
+        android:orientation="horizontal" >
+		<EditText
+            android:id="@+id/logtext"
+            android:layout_width="0dp"
+            android:layout_weight="8"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:longClickable="false" 
+            android:textSize="14sp" 
+            android:editable="false"/>
+         <Button
+		 	android:id="@+id/button_clean"
+	        android:layout_width="0dp"
+			android:layout_weight="1"
+	        android:layout_height="match_parent"
+	        android:textSize="@dimen/rfid_textsize"
+	        android:text="@string/clean" />
+	</LinearLayout>	
+
+	
+	<LinearLayout 
+        android:layout_width="match_parent"
+       	android:layout_weight="3"
+        android:layout_height="0dp"
+        android:layout_marginBottom ="@dimen/rfid_marginsize"
+        android:orientation="vertical" >
+
+		<!-- ==============================read and write Keys manahr ========================= -->
+        <LinearLayout 
+	        android:layout_width="match_parent"
+	       	android:layout_weight="1"
+	        android:layout_height="0dp"
+	        android:layout_marginTop="@dimen/rfid_marginsize"
+	        android:orientation="horizontal" >
+
+	        <LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="3"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/key_a" />
+		                <EditText
+						 	android:id="@+id/edit_key_a"
+			                android:layout_width="0dp"
+							android:layout_weight="2"
+							android:digits="0123456789ABCDEF"
+    						android:inputType="textCapCharacters"
+    						android:maxLength="12"
+							android:gravity="center_vertical"
+							android:textSize="@dimen/rfid_textsize"
+			                android:layout_height="match_parent"
+			                android:text="@string/def_value" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="3"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/key_b" />
+		                <EditText
+						 	android:id="@+id/edit_key_b"
+			                android:layout_width="0dp"
+							android:layout_weight="2"
+							android:digits="0123456789ABCDEF"
+    						android:inputType="textCapCharacters"
+    						android:maxLength="12"
+							android:gravity="center_vertical"
+							android:textSize="@dimen/rfid_textsize"
+			                android:layout_height="match_parent"
+			                android:text="@string/def_value" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="1"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			        <Button
+		        	 	android:id="@+id/button_save"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/save" />
+				</LinearLayout>
+	    	
+        </LinearLayout>	
+
+        
+        <!-- ==============================read and write  ========================= -->
+		<LinearLayout 
+	        android:layout_width="match_parent"
+	       	android:layout_weight="5"
+	        android:layout_height="0dp"
+	        android:layout_marginTop="@dimen/rfid_marginsize"
+	        android:orientation="horizontal" >
+
+			 <LinearLayout 
+		        android:layout_width="0dp"
+		       	android:layout_weight="3"
+		        android:layout_height="match_parent"
+		        android:layout_marginRight="@dimen/rfid_marginsize"
+		        android:orientation="vertical" >
+
+		        <LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+		             <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/card_type" />
+					 <TextView
+					 	android:id="@+id/rfid_type"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/def_value" />
+		             <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/card_id" />
+					 <TextView
+					 	android:id="@+id/rfid_id"
+		                android:layout_width="0dp"
+						android:layout_weight="4"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/def_value" />
+				</LinearLayout>
+
+				 <LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+			        <Button
+		        	 	android:id="@+id/button_read_rfid"
+		                android:layout_width="match_parent"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/read_rfid" />
+			    </LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:layout_marginTop="@dimen/rfid_margintop"
+			        android:orientation="horizontal" >
+					 <EditText
+					 	android:id="@+id/write_value"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:digits="0123456789ABCDEF"
+    					android:inputType="textCapCharacters"
+    					android:maxLength="32"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/def_value" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+					  <Spinner
+						android:id="@+id/spinner_write_key"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					  /> 
+					  <Spinner
+						android:id="@+id/spinner_write_block"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/write_block"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					  /> 
+
+					  <Button
+		        	 	android:id="@+id/button_write_value"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/write" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:layout_marginTop="@dimen/rfid_margintop"
+			        android:orientation="horizontal" >
+					  <Spinner
+						android:id="@+id/spinner_read_key"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					  /> 
+					  <Spinner
+						android:id="@+id/spinner_read_block"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/read_block"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					  /> 
+					  <Button
+		        	 	android:id="@+id/button_read_value"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/read" />
+				</LinearLayout>
+			</LinearLayout>	
+		
+			<!-- ==============================wallet ========================= -->
+			 <LinearLayout 
+		        android:layout_width="0dp"
+		       	android:layout_weight="2"
+		        android:layout_height="match_parent"
+		        android:layout_marginLeft="@dimen/rfid_marginsize"
+		        android:orientation="vertical" >
+
+		        <LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="2"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/block_wallet" />
+		             <Spinner
+						android:id="@+id/spinner_wallet_block"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/block_wallet"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />     
+				</LinearLayout>	
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+
+			         <Button
+		        	 	android:id="@+id/button_Initialize_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/Initialize_wallet" />
+		             <Spinner
+						android:id="@+id/spinner_Initialize_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 /> 
+					 <EditText
+						android:id="@+id/edit_Initialize_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:digits="1234567890"
+						android:inputType="number"
+						android:maxLength="6"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+				</LinearLayout>	
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+			         <Button
+		        	 	android:id="@+id/button_decrease_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/decrease_wallet" />
+		             <Spinner
+						android:id="@+id/spinner_decrease_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 /> 
+					 <EditText
+						android:id="@+id/edit_decrease_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:digits="1234567890"
+						android:inputType="number"
+						android:maxLength="6"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+
+			         <Button
+		        	 	android:id="@+id/button_increase_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/increase_wallet" />
+		             <Spinner
+						android:id="@+id/spinner_increase_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 /> 
+					 <EditText
+						android:id="@+id/edit_increase_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:digits="1234567890"
+						android:inputType="number"
+						android:maxLength="6"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="match_parent"
+			       	android:layout_weight="1"
+			        android:layout_height="0dp"
+			        android:orientation="horizontal" >
+
+			         <Button
+		        	 	android:id="@+id/button_check_wallet"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/check_wallet" />
+		             <Spinner
+						android:id="@+id/spinner_check__wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 /> 
+					 <EditText
+						android:id="@+id/edit_check_wallet"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+				</LinearLayout>
+			</LinearLayout>	
+		</LinearLayout>	
+		
+		<!-- ==============================Secret ========================= -->
+		<LinearLayout 
+	        android:layout_width="match_parent"
+	       	android:layout_weight="1"
+	        android:layout_height="0dp"
+	        android:layout_marginTop="@dimen/rfid_marginsize"
+	        android:orientation="horizontal" >
+
+	        <LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="2"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/key_a" />
+		                <EditText
+						 	android:id="@+id/secret_key_a"
+			                android:layout_width="0dp"
+							android:layout_weight="2"
+							android:digits="0123456789ABCDEF"
+    						android:inputType="textCapCharacters"
+    						android:maxLength="12"
+							android:gravity="center_vertical"
+							android:textSize="@dimen/rfid_textsize"
+			                android:layout_height="match_parent"
+			                android:text="@string/def_value" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="2"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/control" />
+		                <EditText
+						 	android:id="@+id/secret_control"
+			                android:layout_width="0dp"
+							android:layout_weight="2"
+							android:digits="0123456789ABCDEF"
+    						android:inputType="textCapCharacters"
+    						android:maxLength="12"
+							android:gravity="center_vertical"
+							android:textSize="@dimen/rfid_textsize"
+			                android:layout_height="match_parent"
+			                android:text="@string/def_value" />
+				</LinearLayout>
+				
+				<LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="2"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+			         <TextView
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+						android:gravity="center_vertical"
+						android:textSize="@dimen/rfid_textsize"
+		                android:layout_height="match_parent"
+		                android:text="@string/key_b" />
+		                <EditText
+						 	android:id="@+id/secret_key_b"
+			                android:layout_width="0dp"
+							android:layout_weight="2"
+							android:digits="0123456789ABCDEF"
+    						android:inputType="textCapCharacters"
+    						android:maxLength="12"
+							android:gravity="center_vertical"
+							android:textSize="@dimen/rfid_textsize"
+			                android:layout_height="match_parent"
+			                android:text="@string/def_value" />
+				</LinearLayout>
+
+				<LinearLayout 
+			        android:layout_width="0dp"
+			       	android:layout_weight="3"
+			        android:layout_height="match_parent"
+			        android:orientation="horizontal" >
+
+			        <Spinner
+						android:id="@+id/spinner_secret_key"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/key_ab"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+			        <Spinner
+						android:id="@+id/spinner_secret"
+						android:layout_width="0dp"
+						android:layout_weight="1"
+						android:entries="@array/secret_block"
+						android:textSize="@dimen/rfid_textsize"
+						android:layout_height="match_parent"
+					 />
+		            <Button
+		        	 	android:id="@+id/button_secret"
+		                android:layout_width="0dp"
+						android:layout_weight="1"
+		                android:layout_height="match_parent"
+		                android:textSize="@dimen/rfid_textsize"
+		                android:text="@string/secret" />
+				</LinearLayout>
+	    	
+        </LinearLayout>	
+		
+	</LinearLayout>	
+	
+    
+</LinearLayout>

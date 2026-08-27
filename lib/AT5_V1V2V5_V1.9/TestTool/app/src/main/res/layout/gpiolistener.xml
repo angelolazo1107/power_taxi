@@ -1,0 +1,202 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_testtool"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:orientation="vertical" >
+  
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+		    <TextView
+		        android:id="@+id/out1_tv"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_out1_tv"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+		    <Button
+		        android:id="@+id/out1_btn"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/activity_gpio_textSize"
+		        android:text="@string/text_out1_btn" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/led_tv"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_led_tv"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+		    <Button
+		        android:id="@+id/led_btn"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/activity_gpio_textSize"
+		        android:text="@string/text_led_btn" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/usb1_tv"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_usb1_tv"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+		    <Button
+		        android:id="@+id/usb1_btn"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/activity_gpio_textSize"
+		        android:text="@string/text_usb1_btn" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/usb2_tv"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_usb2_tv"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+		    <Button
+		        android:id="@+id/usb2_btn"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:textSize="@dimen/activity_gpio_textSize"
+		        android:text="@string/text_usb1_btn" />
+
+    	</LinearLayout>
+
+		<LinearLayout
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:focusable="true"
+			android:focusableInTouchMode="true">
+
+			<TextView
+				android:id="@+id/usb3_tv"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/text_usb2_tv"
+				android:textSize="@dimen/activity_gpio_textSize" />
+
+			<Button
+				android:id="@+id/usb3_btn"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textSize="@dimen/activity_gpio_textSize"
+				android:text="@string/text_usb1_btn" />
+
+		</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/in1"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:layout_marginTop="6dp"
+		        android:text="@string/text_in1"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/in2"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_in2"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/in3"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_in3"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/in4"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_in4"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+    	</LinearLayout>
+
+    	<LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="true" 
+    		android:focusableInTouchMode="true">
+
+    		<TextView
+		        android:id="@+id/acc_tv"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/text_acc_tv"
+		        android:textSize="@dimen/activity_gpio_textSize" />
+
+    	</LinearLayout>
+    </LinearLayout>
+
+
+</LinearLayout>

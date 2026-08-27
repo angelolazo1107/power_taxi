@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:background="@drawable/bg_testtool"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+	<LinearLayout
+	    android:layout_width="match_parent"
+	    android:layout_height="match_parent"
+	    android:layout_marginLeft="50dp"
+	    android:layout_marginRight="50dp"
+	    android:orientation="vertical" >
+
+	     <LinearLayout 
+	     	android:id="@+id/linearlayout_power_adc"
+			android:layout_width="match_parent"
+			android:layout_height="0dp"
+			android:layout_weight="2"
+			android:orientation="horizontal" >
+
+			<LinearLayout 
+			   android:layout_width="0dp"
+			   android:layout_weight="4"
+               android:layout_height="match_parent"
+			   android:orientation="vertical" >
+
+			   <TextView
+		    	    android:id="@+id/power_adc_value"
+				    android:layout_width="wrap_content"
+				    android:layout_height="0dp"
+				    android:layout_weight="1"
+				    android:text="@string/save"
+					android:gravity="center_vertical"
+				    android:textSize="@dimen/oiml_textSize" />
+				 
+				<LinearLayout 
+					android:layout_width="match_parent"
+					android:layout_height="0dp"
+					android:layout_weight="1"
+					android:orientation="horizontal" >
+
+					<LinearLayout 
+						android:layout_width="0dp"
+						android:layout_height="match_parent"
+						android:layout_weight="1"
+						android:orientation="horizontal" >
+
+						<TextView
+						    android:layout_width="wrap_content"
+						    android:layout_height="match_parent"
+						    android:text="@string/main_power_off"
+							android:gravity="center_vertical"
+						    android:textSize="@dimen/oiml_textSize" />
+
+					    <EditText
+					    	android:id="@+id/main_power_off"
+						    android:layout_width="0dp"
+						    android:layout_height="match_parent"
+						    android:layout_weight="1"
+							android:gravity="center_vertical"
+							android:digits="1234567890"
+							android:inputType="number"
+							android:maxLength="3"
+						    android:textSize="@dimen/oiml_textSize" />
+					
+					</LinearLayout>
+
+					<LinearLayout 
+						android:layout_width="0dp"
+						android:layout_height="match_parent"
+						android:layout_weight="1"
+						android:orientation="horizontal" >
+
+						<TextView
+						    android:layout_width="wrap_content"
+						    android:layout_height="match_parent"
+						    android:text="@string/main_power_on"
+							android:gravity="center_vertical"
+						    android:textSize="@dimen/oiml_textSize" />
+
+					    <EditText
+					    	android:id="@+id/main_power_on"
+						    android:layout_width="0dp"
+						    android:layout_height="match_parent"
+						    android:layout_weight="1"
+							android:gravity="center_vertical"
+							android:digits="1234567890"
+							android:inputType="number"
+							android:maxLength="3"
+						    android:textSize="@dimen/oiml_textSize" />
+					
+					</LinearLayout>
+					
+				</LinearLayout>
+
+
+				<LinearLayout 
+					android:layout_width="match_parent"
+					android:layout_height="0dp"
+					android:layout_weight="1"
+					android:orientation="horizontal" >
+
+					<LinearLayout 
+						android:layout_width="0dp"
+						android:layout_height="match_parent"
+						android:layout_weight="1"
+						android:orientation="horizontal" >
+
+						<TextView
+						    android:layout_width="wrap_content"
+						    android:layout_height="match_parent"
+						    android:text="@string/for_hire"
+							android:gravity="center_vertical"
+						    android:textSize="@dimen/oiml_textSize" />
+
+					    <EditText
+					    	android:id="@+id/for_hire"
+						    android:layout_width="0dp"
+						    android:layout_height="match_parent"
+						    android:layout_weight="1"
+							android:gravity="center_vertical"
+							android:digits="1234567890"
+							android:inputType="number"
+							android:maxLength="3"
+						    android:textSize="@dimen/oiml_textSize" />
+					
+					</LinearLayout>
+
+					<LinearLayout 
+						android:layout_width="0dp"
+						android:layout_height="match_parent"
+						android:layout_weight="1"
+						android:orientation="horizontal" >
+
+						<TextView
+						    android:layout_width="wrap_content"
+						    android:layout_height="match_parent"
+						    android:text="@string/close_app"
+							android:gravity="center_vertical"
+						    android:textSize="@dimen/oiml_textSize" />
+
+					    <EditText
+					    	android:id="@+id/close_app"
+						    android:layout_width="0dp"
+						    android:layout_height="match_parent"
+						    android:layout_weight="1"
+							android:gravity="center_vertical"
+							android:digits="1234567890"
+							android:inputType="number"
+							android:maxLength="3"
+						    android:textSize="@dimen/oiml_textSize" />
+					
+					</LinearLayout>
+
+					<LinearLayout 
+						android:layout_width="0dp"
+						android:layout_height="match_parent"
+						android:layout_weight="1"
+						android:orientation="horizontal" >
+
+						<TextView
+						    android:layout_width="wrap_content"
+						    android:layout_height="match_parent"
+						    android:text="@string/shutdown"
+							android:gravity="center_vertical"
+						    android:textSize="@dimen/oiml_textSize" />
+
+					    <EditText
+					    	android:id="@+id/shutdown"
+						    android:layout_width="0dp"
+						    android:layout_height="match_parent"
+						    android:layout_weight="1"
+							android:gravity="center_vertical"
+							android:digits="1234567890"
+							android:inputType="number"
+							android:maxLength="3"
+						    android:textSize="@dimen/oiml_textSize" />
+					
+					</LinearLayout>
+					
+				</LinearLayout>
+				
+			</LinearLayout>
+			
+
+			 <Button
+               android:id="@+id/save_power_adc"
+               android:layout_width="0dp"
+			   android:layout_weight="1"
+               android:layout_height="match_parent"
+               android:textSize="@dimen/oiml_textSize"
+               android:text="@string/save"/>
+	    </LinearLayout>
+	    
+	    <LinearLayout 
+			android:layout_width="match_parent"
+			android:layout_height="0dp"
+			android:layout_weight="2"
+			android:layout_marginTop="50dp"
+			android:orientation="vertical" >
+
+			<LinearLayout 
+				android:layout_width="match_parent"
+				android:layout_height="0dp"
+				android:layout_weight="1"
+				android:orientation="horizontal" >
+				<TextView
+			    	    android:id="@+id/key"
+					    android:layout_width="wrap_content"
+						android:gravity="center_vertical"
+					    android:layout_height="match_parent"
+					    android:textSize="@dimen/oiml_textSize" />
+				<Button
+		               android:id="@+id/edit_key"
+		               android:layout_marginLeft="20dp"
+		               android:layout_width="wrap_content"
+		               android:layout_height="match_parent"
+		               android:textSize="@dimen/oiml_textSize"
+		               android:text="@string/edit_key"/>
+			</LinearLayout>
+
+			<LinearLayout
+				android:layout_width="match_parent"
+				android:layout_height="0dp"
+				android:layout_weight="1"
+				android:orientation="horizontal" >
+				<TextView
+					android:id="@+id/show_pulse_speed"
+					android:layout_width="350dp"
+					android:layout_height="match_parent"
+					android:gravity="center_vertical"
+					android:textSize="@dimen/oiml_textSize" />
+				<TextView
+					android:id="@+id/pulse_speed"
+					android:layout_width="300dp"
+					android:layout_height="match_parent"
+					android:gravity="center_vertical"
+					android:layout_marginStart="10dp"
+					android:textSize="@dimen/oiml_textSize" />
+				<TextView
+					android:id="@+id/final_speed"
+					android:layout_width="300dp"
+					android:layout_height="match_parent"
+					android:gravity="center_vertical"
+					android:layout_marginStart="10dp"
+					android:textSize="@dimen/oiml_textSize" />
+			</LinearLayout>
+
+<!--			<TextView-->
+<!--				android:id="@+id/show_pulse_speed"-->
+<!--				android:layout_width="match_parent"-->
+<!--				android:layout_weight="1"-->
+<!--				android:gravity="center_vertical"-->
+<!--				android:layout_height="0dp"-->
+<!--				android:textSize="@dimen/oiml_textSize" />-->
+
+			<TextView
+				android:id="@+id/show_count"
+				android:layout_width="match_parent"
+				android:layout_weight="1"
+				android:gravity="center_vertical"
+				android:layout_height="0dp"
+				android:textSize="@dimen/oiml_textSize" />
+		</LinearLayout>
+						 
+		 <LinearLayout 
+				android:layout_width="match_parent"
+				android:layout_height="0dp"
+				android:layout_weight="1"
+				android:orientation="horizontal" >
+		    	<Button
+		               android:id="@+id/start_count_pluse"
+		               android:layout_width="0dp"
+					   android:layout_weight="1"
+					   android:layout_marginTop="5dp"
+					   android:layout_marginBottom="5dp"
+					   android:layout_marginLeft="10dp"
+		               android:layout_height="match_parent"
+		               android:textSize="@dimen/oiml_textSize"
+		               android:text="@string/start"/>
+				<Button
+		               android:id="@+id/stop_count_pluse"
+		               android:layout_width="0dp"
+					   android:layout_weight="1"
+					   android:layout_marginTop="5dp"
+					   android:layout_marginBottom="5dp"
+		               android:layout_height="match_parent"
+		               android:textSize="@dimen/oiml_textSize"
+		               android:text="@string/stop"/>
+
+		       <Button
+		               android:id="@+id/clean_count_pluse"
+		               android:layout_width="0dp"
+					   android:layout_weight="1"
+					   android:layout_marginTop="5dp"
+					   android:layout_marginBottom="5dp"
+		               android:layout_height="match_parent"
+		               android:textSize="@dimen/oiml_textSize"
+		               android:text="@string/clean"/>
+		 </LinearLayout>
+	</LinearLayout>
+</RelativeLayout>

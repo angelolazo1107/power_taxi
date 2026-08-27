@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rfid"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="@dimen/rfid_marginsize"
+    android:layout_marginLeft="@dimen/rfid_marginsize"
+    android:layout_marginRight="@dimen/rfid_marginsize"
+    android:layout_marginBottom ="@dimen/rfid_marginsize"
+    android:background="@drawable/bg_testtool"
+    android:orientation="vertical">
+     <LinearLayout 
+        android:layout_width="match_parent"
+       	android:layout_weight="1"
+        android:layout_height="0dp"
+        android:layout_marginBottom ="@dimen/rfid_marginsize"
+        android:orientation="horizontal" >
+		<EditText
+            android:id="@+id/logtext"
+            android:layout_width="0dp"
+            android:layout_weight="8"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:longClickable="false" 
+            android:textSize="20sp" 
+            android:editable="false"/>
+         <Button
+		 	android:id="@+id/button_clean"
+	        android:layout_width="0dp"
+			android:layout_weight="1"
+	        android:layout_height="match_parent"
+	        android:textSize="@dimen/rfid_textsize"
+	        android:text="@string/clean" />
+	</LinearLayout>	  
+</LinearLayout>

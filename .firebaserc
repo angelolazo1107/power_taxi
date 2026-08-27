@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "powertaxi-metro",
+    "staging": "powertaxi-metro"
+  },
+  "targets": {},
+  "etags": {}
+}
